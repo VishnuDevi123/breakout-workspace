@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { formatClock } from "@/lib/round-clock";
 import { ROUND_TEMPLATES, sampleSnapshot } from "@/lib/round-templates";
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import type { PastWorkflow, SavedTemplate, WorkflowSnapshot } from "@/types/breakout";
 
 import SaveTemplateModal, { plural } from "./SaveTemplateModal";
@@ -20,12 +21,33 @@ function activityCount(workflow: WorkflowSnapshot): number {
   return workflow.rounds.reduce((sum, round) => sum + round.activities.length, 0);
 }
 
-/** One workflow in a list: name, a summary line, its actions. */
-function LibraryRow({ title, meta, action }: { title: string; meta: string; action: React.ReactNode }) {
+/**
+ * One workflow in a list: name, a summary line, its actions. With `onOpen` the whole
+ * card is clickable: the name is a button stretched over the card, under `action`.
+ */
+function LibraryRow({
+  title,
+  meta,
+  action,
+  onOpen,
+  busy,
+}: {
+  title: string;
+  meta: string;
+  action?: React.ReactNode;
+  onOpen?: () => void;
+  busy?: boolean;
+}) {
   return (
-    <div className="bw-library-row">
+    <div className="bw-card bw-library-row">
       <div className="bw-library-row__text">
-        <span className="bw-library-row__title">{title}</span>
+        {onOpen ? (
+          <button type="button" className="bw-library-row__title bw-card-open" disabled={busy} aria-label={`Use ${title}`} onClick={onOpen}>
+            {title}
+          </button>
+        ) : (
+          <span className="bw-library-row__title">{title}</span>
+        )}
         <span className="bw-library-row__meta">{meta}</span>
       </div>
       {action}
@@ -68,6 +90,7 @@ export default function WorkflowLibrary({
   const [replacing, setReplacing] = useState<WorkflowSnapshot | null>(null);
   const [deleting, setDeleting] = useState<SavedTemplate | null>(null);
   const [tab, setTab] = useState<LibraryTab>("templates");
+  const scrollReveal = useScrollReveal();
   const tabs: { id: LibraryTab; label: string }[] = [
     { id: "templates", label: "Templates" },
     { id: "saved", label: tabLabel("Saved", templates.length) },
@@ -97,18 +120,16 @@ export default function WorkflowLibrary({
           ))}
         </div>
 
-        <div className="bw-library-list" role="tabpanel">
+        {/* Keyed by tab so a new list starts at its top. */}
+        <div key={tab} className="bw-library-list" role="tabpanel" {...scrollReveal}>
           {tab === "templates"
             ? ROUND_TEMPLATES.map((template) => (
                 <LibraryRow
                   key={template.name}
                   title={template.name}
                   meta={`${plural(template.rounds.length, "round")} · ${formatClock(template.rounds.reduce((sum, round) => sum + round.durationSec, 0))}`}
-                  action={
-                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => use(sampleSnapshot(template, SAMPLE_TITLE))}>
-                      Use
-                    </Button>
-                  }
+                  busy={busy}
+                  onOpen={() => use(sampleSnapshot(template, SAMPLE_TITLE))}
                 />
               ))
             : null}
@@ -120,6 +141,8 @@ export default function WorkflowLibrary({
                   key={template.id}
                   title={template.title}
                   meta={`${plural(template.rounds.length, "round")} · ${plural(roomCount(template), "room")} · ${plural(activityCount(template), "activity", "activities")}`}
+                  busy={busy}
+                  onOpen={() => use(template)}
                   action={
                     <div className="bw-library-row__actions">
                       <Button
@@ -130,9 +153,6 @@ export default function WorkflowLibrary({
                         onClick={() => setDeleting(template)}
                       >
                         Delete
-                      </Button>
-                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => use(template)}>
-                        Use
                       </Button>
                     </div>
                   }

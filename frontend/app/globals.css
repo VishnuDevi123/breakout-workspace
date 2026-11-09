@@ -441,6 +441,12 @@ input[type="checkbox"] {
   background: var(--bw-surface);
 }
 
+/* Exactly one window tall, so the page's own lists scroll instead of the page growing. */
+.bw-shell--fit {
+  height: 100dvh;
+  min-height: 0;
+}
+
 /* Every top bar (landing, workflow page, round setup, live, participant) shares one height, padding and gap. */
 .bw-header {
   min-height: var(--bw-bar-h);
@@ -585,6 +591,12 @@ input[type="checkbox"] {
   text-align: center;
 }
 
+/* Home: starts at the top and fills the window, so changing library tab moves nothing above it. */
+.bw-landing--home {
+  flex: 1 1 0;
+  margin-block: 0;
+}
+
 /* Every landing state fades in, including the return after End Workflow. */
 .bw-landing {
   animation: bwPageIn 200ms ease-out;
@@ -623,10 +635,18 @@ input[type="checkbox"] {
   }
 }
 
-/* Library tabs under the landing column: Templates | Saved | Past, one list of rows. */
+/* Library under the landing column: one box holding the tabs and a list of cards. */
 .bw-library {
+  flex: 1 1 200px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   margin-top: 8px;
+  padding: 4px 12px 12px;
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-lg);
+  background: var(--bw-surface);
   text-align: left;
 }
 
@@ -643,7 +663,7 @@ input[type="checkbox"] {
   margin-bottom: -1px;
   background: none;
   font: inherit;
-  font-size: var(--bw-fs-body);
+  font-size: calc(var(--bw-fs-body) + 0.25px);
   color: var(--bw-muted);
   cursor: pointer;
 }
@@ -658,9 +678,22 @@ input[type="checkbox"] {
   font-weight: 600;
 }
 
+/* Always scrollable, so rows keep their width between tabs; the scrollbar sits in the box padding.
+   No scrollbar-width here: with it WebKit draws a native track even on a list too short to scroll. */
 .bw-library-list {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  margin-right: -6px;
+  padding-top: 10px;
+  overflow-y: scroll;
+}
+
+/* WebKit repaints a custom scrollbar only when the element's own style changes. */
+.bw-library-list[data-scrolling] {
+  --bw-scrollbar-repaint: 1;
 }
 
 .bw-library-row {
@@ -669,8 +702,10 @@ input[type="checkbox"] {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 14px 6px;
-  border-bottom: 1px solid var(--bw-border-faint);
+  flex: none;
+  position: relative;
+  background: var(--bw-surface-sunken); /* same as the AI prompt box */
+  box-shadow: none; /* the list clips a shadow at its edges */
 }
 
 .bw-library-row__text {
@@ -680,7 +715,10 @@ input[type="checkbox"] {
   min-width: 0;
 }
 
+/* Above the stretched card button, so Delete takes its own clicks. */
 .bw-library-row__actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 8px;
 }
@@ -691,6 +729,42 @@ input[type="checkbox"] {
   overflow-wrap: anywhere;
 }
 
+/* A card's own button; its ::after covers the whole card, border included. The card is position: relative. */
+.bw-card-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bw-card-open::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-radius: var(--bw-radius-md);
+}
+
+.bw-card-open:hover:not(:disabled)::after {
+  border-color: var(--bw-accent);
+}
+
+.bw-card-open:focus-visible {
+  outline: none;
+}
+
+.bw-card-open:focus-visible::after {
+  outline: 2px solid var(--bw-accent);
+  outline-offset: -2px;
+}
+
+.bw-card-open:disabled {
+  cursor: not-allowed;
+}
+
 .bw-library-row__meta,
 .bw-library-empty {
   font-size: var(--bw-fs-meta);
@@ -699,7 +773,7 @@ input[type="checkbox"] {
 
 .bw-library-empty {
   margin: 0;
-  padding: 14px 6px;
+  padding: 4px 14px;
 }
 
 /* Header action that changes (Launch next <-> End Workflow) fades in. */
@@ -863,6 +937,7 @@ input[type="checkbox"] {
 
 /* Everything under the prompt; dims while the AI works. */
 .bw-landing-rest {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1188,22 +1263,65 @@ input[type="checkbox"] {
 }
 
 /* Workflow page round card: name and time, a summary line, then its buttons. */
+/* Name over summary on the left; timer over Remove on the right. */
 .bw-round-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  position: relative;
   border-left: 4px solid var(--bw-border);
 }
 
-.bw-round-row__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.bw-round-row .bw-card-open::after {
+  left: -4px; /* the coloured left border */
+}
+
+/* Above the stretched card button, so renaming, timing and Remove take their own clicks. */
+.bw-round-row > .bw-editable-name,
+.bw-round-row__controls {
+  position: relative;
+  z-index: 1;
+}
+
+.bw-round-row > .bw-editable-name {
+  justify-self: start; /* only the name itself, so the space beside it opens the card */
+  align-self: end;
+  max-width: 100%;
   min-width: 0;
 }
 
+.bw-round-row .bw-room-name {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.bw-round-row__controls {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.bw-round-row__controls .bw-button {
+  min-height: 24px;
+}
+
+.bw-round-list__hint,
+.bw-workflow .bw-section-label {
+  font-size: calc(var(--bw-fs-label) + 1px);
+}
+
+
+.bw-round-list__hint {
+  margin: 0;
+  color: var(--bw-muted);
+}
+
 .bw-round-row__summary {
+  grid-column: 1;
+  align-self: start;
   font-size: var(--bw-fs-meta);
   color: var(--bw-muted);
 }
@@ -2440,28 +2558,10 @@ a.bw-resource-row:hover {
   flex-direction: column;
   gap: 10px;
 }
-.bw-readiness {
+.bw-confirm-warning {
   margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--bw-fs-meta);
-}
-.bw-readiness__item::before {
-  margin-right: 6px;
-  font-weight: 700;
-}
-.bw-readiness__item--ok::before {
-  content: "✓";
-  color: var(--bw-teal-deep);
-}
-.bw-readiness__item--warn {
+  font-size: var(--bw-fs-body);
   color: var(--bw-amber-deep);
-}
-.bw-readiness__item--warn::before {
-  content: "!";
 }
 
 /* ── Host results: a room's work, then one activity's submissions ───── */
@@ -3336,7 +3436,6 @@ a.bw-resource-row:hover {
   gap: 10px;
   margin-top: auto;
   padding-top: 14px;
-  border-top: 1px solid var(--bw-border);
 }
 /* ── Live polls and quizzes ─────────────────────────────────────────── */
 .bw-challenge-badge {
@@ -3372,16 +3471,19 @@ a.bw-resource-row:hover {
   scrollbar-color: var(--bw-border-strong) transparent;
 }
 .bw-challenge-scroll::-webkit-scrollbar,
-.bw-expanding::-webkit-scrollbar {
+.bw-expanding::-webkit-scrollbar,
+.bw-library-list::-webkit-scrollbar {
   width: 6px;
 }
 .bw-challenge-scroll::-webkit-scrollbar-thumb,
-.bw-expanding::-webkit-scrollbar-thumb {
+.bw-expanding::-webkit-scrollbar-thumb,
+.bw-library-list::-webkit-scrollbar-thumb {
   border-radius: 3px;
   background: transparent;
 }
 .bw-challenge-scroll[data-scrolling]::-webkit-scrollbar-thumb,
-.bw-expanding[data-scrolling]::-webkit-scrollbar-thumb {
+.bw-expanding[data-scrolling]::-webkit-scrollbar-thumb,
+.bw-library-list[data-scrolling]::-webkit-scrollbar-thumb {
   background: var(--bw-border-strong);
 }
 .bw-challenge-scroll--capped {

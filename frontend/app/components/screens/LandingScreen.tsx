@@ -64,7 +64,7 @@ export default function LandingScreen({
       : `${participantCount} ${participantCount === 1 ? "person" : "people"}`;
 
   return (
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <BrandMark />
         <div className="bw-round-heading">
@@ -79,7 +79,7 @@ export default function LandingScreen({
       <div className="bw-body">
         <main className="bw-main bw-landing-page">
           {/* Keyed by state so ending a workflow fades the page back in. */}
-          <div key={ongoing ? "ongoing" : "home"} className="bw-landing">
+          <div key={ongoing ? "ongoing" : "home"} className={ongoing ? "bw-landing" : "bw-landing bw-landing--home"}>
             {ongoing ? (
               <Card className="bw-landing-card bw-landing-card--live">
                 <div className="bw-landing-card__text">

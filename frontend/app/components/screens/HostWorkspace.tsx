@@ -525,9 +525,9 @@ export default function HostWorkspace({
             toast.success("Template saved.");
           })
         }
-        onEditRound={(roundId, tab) => {
+        onEditRound={(roundId) => {
           workspace.selectRound(roundId);
-          setView(tab === "tasks" ? "task" : "draft");
+          setView("draft");
         }}
       />
     );

@@ -22,7 +22,6 @@ import type {
 
 import SaveTemplateModal from "../SaveTemplateModal";
 import ZoomActionOverlay from "../ZoomActionOverlay";
-import type { SetupTab } from "./RoundSetup";
 import { Button, Card, ConfirmModal, EditableName, SectionLabel } from "../ui";
 
 const DURATION_STEP_SEC = 30;
@@ -94,7 +93,7 @@ export default function RoundsOverview({
       Pick<Workspace, "title" | "sameRoomsEveryRound" | "samePeopleEveryRound" | "autoStartNextRound">
     >,
   ) => Promise<void>;
-  onEditRound: (roundId: string, tab: SetupTab) => void;
+  onEditRound: (roundId: string) => void;
   /** Saves this workflow, without people, to the host's templates. Reports its own errors. */
   onSaveTemplate: () => Promise<void>;
   /** Writes a round's plan just before launch ("Same groups" copies the last round's groups). */
@@ -242,7 +241,7 @@ export default function RoundsOverview({
 
       <div className="bw-body bw-workflow">
         <main className="bw-main">
-          <SectionLabel>Rounds</SectionLabel>
+          <p className="bw-round-list__hint">Click a round to edit its rooms and tasks</p>
           <div className="bw-round-list">
             {workspace.rounds.map((round, index) => (
               <RoundRow
@@ -260,7 +259,7 @@ export default function RoundsOverview({
                   run(() => onUpdateRound(round.roundId, { durationSec }))
                 }
                 onDelete={() => run(() => onDeleteRound(round.roundId))}
-                onOpen={(tab) => onEditRound(round.roundId, tab)}
+                onOpen={() => onEditRound(round.roundId)}
               />
             ))}
             <button
@@ -331,21 +330,21 @@ export default function RoundsOverview({
             </>
           )}
 
-          <label className="bw-switch-row">
-            <input
-              type="checkbox"
-              checked={workspace.autoStartNextRound}
-              onChange={(event) =>
-                void run(() =>
-                  onUpdateWorkspace({
-                    autoStartNextRound: event.target.checked,
-                  }),
-                )
-              }
-            />
-            <span>Start the next round when the timer ends</span>
-          </label>
           <div className="bw-workflow__actions">
+            <label className="bw-switch-row">
+              <input
+                type="checkbox"
+                checked={workspace.autoStartNextRound}
+                onChange={(event) =>
+                  void run(() =>
+                    onUpdateWorkspace({
+                      autoStartNextRound: event.target.checked,
+                    }),
+                  )
+                }
+              />
+              <span>Start the next round when the timer ends</span>
+            </label>
             <LaunchWorkflow
               workspace={workspace}
               parentUUID={parentUUID}
@@ -488,7 +487,7 @@ function LaunchWorkflow({
   settledAtLaunch: boolean;
   prepareLaunch: (roundId: string) => Promise<void>;
   onLaunched: (roundId: string) => void;
-  /** Shown between the readiness list and the Launch button (Save as template). */
+  /** Shown above the Launch button (Save as template). */
   children: React.ReactNode;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -503,31 +502,22 @@ function LaunchWorkflow({
     onLaunched,
   });
   const { blocker, unplaced } = readiness(workspace, target, plan, presentUUIDs, settledAtLaunch);
-  const roomCount = plan?.rooms.length ?? 0;
   const keptInMain = new Set(plan?.stayInMainParticipantUUIDs);
   const placed = settledAtLaunch
     ? presentUUIDs.filter((uuid) => !keptInMain.has(uuid)).length
     : (plan?.rooms.reduce((sum, room) => sum + room.participantUUIDs.length, 0) ?? 0);
+  const peopleWarning =
+    placed === 0
+      ? "No one is placed yet!"
+      : unplaced > 0
+        ? `${unplaced} ${unplaced === 1 ? "person is" : "people are"} not placed and will stay in the main room.`
+        : null;
   const position = target ? workspace.rounds.findIndex((round) => round.roundId === target.roundId) + 1 : 0;
   // "Round 2 of 3", plus the host's own name for it when it has one.
   const which = `Round ${position} of ${workspace.rounds.length}${label === `Round ${position}` ? "" : ` (${label})`}`;
 
   return (
     <div className="bw-launch">
-      {!blocker ? (
-        <ul className="bw-readiness">
-          <li className="bw-readiness__item bw-readiness__item--ok">
-            {label} has {roomCount} {roomCount === 1 ? "room" : "rooms"}
-          </li>
-
-          {unplaced > 0 ? (
-            <li className="bw-readiness__item bw-readiness__item--warn">
-              {unplaced} {unplaced === 1 ? "person is" : "people are"} not
-              placed and will stay in the main room
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
       {children}
       <Button
         variant="primary"
@@ -542,10 +532,8 @@ function LaunchWorkflow({
       {confirming && target ? (
         <ConfirmModal
           title="Launch this workflow?"
-          message={
-            `${which} · ${formatClock(target.durationSec)} · ${roomCount} ${roomCount === 1 ? "room" : "rooms"}. ` +
-            `${placed} placed${unplaced > 0 ? ` · ${unplaced} not placed will stay in the main room` : ""}.`
-          }
+          message={`${which} starts now and runs for ${formatClock(target.durationSec)}.`}
+          details={peopleWarning ? <p className="bw-confirm-warning">{peopleWarning}</p> : undefined}
           confirmLabel="Launch"
           confirmVariant="primary"
           onConfirm={async () => controller.launch()}
@@ -610,12 +598,12 @@ function RoundRow({
   round: RoundMeta;
   position: number;
   plan: RoundPlan | null;
-  /** "Same groups": this round launches with the previous round's rooms and people, so it has no Rooms button. */
+  /** "Same groups": this round launches with the previous round's rooms and people. */
   groupsFromPrevious: boolean;
   onRename: (title: string | null) => void;
   onDuration: (durationSec: number) => void;
-  onDelete: () => void;
-  onOpen: (tab: SetupTab) => void;
+  onDelete: () => Promise<void>;
+  onOpen: () => void;
 }) {
   const roomCount = plan?.rooms.length ?? 0;
   const placedCount = plan?.rooms.reduce((sum, room) => sum + room.participantUUIDs.length, 0) ?? 0;
@@ -625,10 +613,13 @@ function RoundRow({
       ? "No rooms yet"
       : `${roomCount} ${roomCount === 1 ? "room" : "rooms"} · ${placedCount} placed`;
 
+  const name = round.title ?? `Round ${position}`;
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+
   return (
     <Card className="bw-round-row" style={{ borderLeftColor: round.dot }}>
-      <div className="bw-round-row__top">
-        <EditableName value={round.title} placeholder={`Round ${position}`} onSave={onRename} />
+      <EditableName value={round.title} placeholder={`Round ${position}`} onSave={onRename} />
+      <div className="bw-round-row__controls">
         <div className="bw-stepper">
           <button
             type="button"
@@ -643,18 +634,6 @@ function RoundRow({
             +
           </button>
         </div>
-      </div>
-      <span className="bw-round-row__summary">{summary}</span>
-      <div className="bw-round-row__actions">
-        {groupsFromPrevious ? null : (
-          <Button variant="secondary" size="sm" onClick={() => onOpen("rooms")}>
-            Rooms
-          </Button>
-        )}
-        <Button variant="secondary" size="sm" onClick={() => onOpen("tasks")}>
-          Tasks
-        </Button>
-        <div className="bw-header-spacer" />
         <Button
           variant="ghost"
           size="sm"
@@ -667,11 +646,24 @@ function RoundRow({
                 ? "A round that has run keeps its results"
                 : undefined
           }
-          onClick={onDelete}
+          onClick={() => setConfirmingRemove(true)}
         >
           Remove
         </Button>
       </div>
+      <button type="button" className="bw-round-row__summary bw-card-open" aria-label={`Edit rooms and tasks for ${name}`} onClick={onOpen}>
+        {summary}
+      </button>
+
+      {confirmingRemove ? (
+        <ConfirmModal
+          title={`Remove ${name}?`}
+          message="Its room assignments, tasks and activities will be deleted."
+          confirmLabel="Remove"
+          onConfirm={onDelete}
+          onClose={() => setConfirmingRemove(false)}
+        />
+      ) : null}
     </Card>
   );
 }

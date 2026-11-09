@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import Button from "./Button";
 import Modal from "./Modal";
@@ -12,6 +12,7 @@ import Modal from "./Modal";
 export default function ConfirmModal({
   title,
   message,
+  details,
   confirmLabel,
   confirmVariant = "danger",
   onConfirm,
@@ -19,6 +20,8 @@ export default function ConfirmModal({
 }: {
   title: string;
   message: string;
+  /** Shown under the message. */
+  details?: ReactNode;
   confirmLabel: string;
   /** Red for destructive steps (the default); primary for ones like launching. */
   confirmVariant?: "danger" | "primary";
@@ -46,6 +49,7 @@ export default function ConfirmModal({
               </button>
             </div>
             <p className="bw-confirm-message">{message}</p>
+            {details}
           </div>
           <footer className="bw-overlay__footer">
             <Button variant="secondary" size="sm" disabled={busy} onClick={close}>
