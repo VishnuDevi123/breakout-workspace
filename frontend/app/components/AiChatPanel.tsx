@@ -9,6 +9,7 @@ import type { WorkflowSnapshot } from "@/types/breakout";
 
 import { plural } from "./SaveTemplateModal";
 import { GROUPING_OPTIONS, groupingOf } from "./screens/RoundsOverview";
+import { AiUsageNote } from "./AiPrompt";
 import { Button, ConfirmModal, Spinner } from "./ui";
 
 /**
@@ -20,6 +21,7 @@ import { Button, ConfirmModal, Spinner } from "./ui";
 export default function AiChatPanel({
   turns,
   pending,
+  promptsLeft,
   hasWorkflow,
   onSend,
   onNewChat,
@@ -28,6 +30,7 @@ export default function AiChatPanel({
 }: {
   turns: AiTurn[];
   pending: boolean;
+  promptsLeft: number | null;
   /** True when a workflow is being built, so using a proposal replaces it. */
   hasWorkflow: boolean;
   /** Resolves false when the send failed or was cancelled, so the composer gets its text back. */
@@ -124,6 +127,7 @@ export default function AiChatPanel({
             ↑
           </Button>
         </form>
+        <AiUsageNote promptsLeft={promptsLeft} />
       </aside>
 
       {replacing ? (

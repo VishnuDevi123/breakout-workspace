@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { draftWorkflowWithAi } from "@/lib/execution-api";
+import { draftWorkflowWithAi, readAiUsage } from "@/lib/execution-api";
 import { MAX_AI_MESSAGES, type AiChatMessage, type WorkflowSnapshot } from "@/types/breakout";
 
 /** One chat turn as the builder shows it: the host's text, the AI's question or its proposal. */
@@ -27,6 +27,16 @@ function toMessages(turns: AiTurn[]): AiChatMessage[] {
   });
 }
 
+/** The counts at which an answer also warns in a toast. */
+const WARN_AT = [5, 1];
+
+function warnIfLow(promptsLeft: number) {
+  if (!WARN_AT.includes(promptsLeft)) return;
+  toast.warning(`${promptsLeft} AI ${promptsLeft === 1 ? "prompt" : "prompts"} left today.`, {
+    description: "They reset at midnight UTC.",
+  });
+}
+
 /**
  * The AI builder chat. Kept apart from use-workspace (the saved workflow) and
  * use-workflow-library (templates): nothing here is saved until the host uses a proposal.
@@ -34,7 +44,14 @@ function toMessages(turns: AiTurn[]): AiChatMessage[] {
 export function useAiBuilder() {
   const [turns, setTurns] = useState<AiTurn[]>([]);
   const [pending, setPending] = useState(false);
+  /** Null until the first read; the count shown under the prompt. */
+  const [promptsLeft, setPromptsLeft] = useState<number | null>(null);
   const request = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    // Without the count the note stays hidden; drafting still works.
+    readAiUsage().then(({ promptsLeft }) => setPromptsLeft(promptsLeft), () => undefined);
+  }, []);
 
   /** Adds the host's text to `history` and asks. Resolves with the answer; null when cancelled or failed. */
   async function ask(history: AiTurn[], text: string): Promise<AiAnswer | null> {
@@ -53,6 +70,8 @@ export function useAiBuilder() {
       const answer: AiAnswer =
         reply.kind === "question" ? { kind: "question", text: reply.question } : { kind: "proposal", workflow: reply.workflow };
       setTurns([...asked, answer]);
+      setPromptsLeft(reply.promptsLeft);
+      warnIfLow(reply.promptsLeft);
       return answer;
     } catch (error) {
       setTurns(history);
@@ -84,5 +103,5 @@ export function useAiBuilder() {
     setTurns([]);
   }
 
-  return { turns, pending, send, startNew, cancel, reset };
+  return { turns, pending, promptsLeft, send, startNew, cancel, reset };
 }

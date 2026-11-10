@@ -105,7 +105,7 @@ export default function LandingScreen({
                   <p className="bw-landing-subheading">Describe it and AI builds the rounds, rooms, tasks and activities.</p>
                 </div>
 
-                <AiPrompt pending={ai.pending} onGenerate={generate} onCancel={ai.cancel} />
+                <AiPrompt pending={ai.pending} promptsLeft={ai.promptsLeft} onGenerate={generate} onCancel={ai.cancel} />
                 {ai.turns.length > 0 && !chatOpen && !ai.pending ? (
                   <button type="button" className="bw-ai-resume" onClick={() => setChatOpen(true)}>
                     Continue your AI chat ›
@@ -150,6 +150,7 @@ export default function LandingScreen({
         <AiChatPanel
           turns={ai.turns}
           pending={ai.pending}
+          promptsLeft={ai.promptsLeft}
           hasWorkflow={workflow !== null}
           onSend={async (text) => (await ai.send(text)) !== null}
           onNewChat={ai.reset}

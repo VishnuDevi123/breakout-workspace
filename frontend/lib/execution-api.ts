@@ -2,6 +2,7 @@ import type {
   AddIdeaRequest,
   DraftWorkflowRequest,
   DraftWorkflowResponse,
+  AiUsage,
   ApiResponse,
   ChallengeAnswerRequest,
   ChallengeDraft,
@@ -245,6 +246,11 @@ export async function saveCurrentAsTemplate(request: SaveCurrentTemplateRequest)
 }
 
 /** Ask the AI for a workflow, or for the details it needs first. Host only; saves nothing. */
+/** The host's AI prompts left today. */
+export async function readAiUsage(): Promise<AiUsage> {
+  return apiResult(await apiFetch("/api/ai/usage", { cache: "no-store" }));
+}
+
 export async function draftWorkflowWithAi(
   request: DraftWorkflowRequest,
   signal: AbortSignal,

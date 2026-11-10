@@ -309,10 +309,23 @@ export interface DraftWorkflowRequest {
   draft: WorkflowSnapshot | null;
 }
 
-/** The AI asks for missing details, or proposes a workflow. Nothing is saved: the host applies a proposal with POST /api/workspace/replace. */
-export type DraftWorkflowResponse =
+/** AI prompts one host may send per UTC day. Every host shares one CreateAI budget. */
+export const AI_PROMPTS_PER_DAY = 20;
+
+/** GET /api/ai/usage. The host's AI prompts left today; the count resets at midnight UTC. */
+export interface AiUsage {
+  promptsLeft: number;
+}
+
+/**
+ * The AI asks for missing details, or proposes a workflow, with the prompts left after this one.
+ * Nothing is saved: the host applies a proposal with POST /api/workspace/replace.
+ */
+export type DraftWorkflowResponse = (
   | { kind: "question"; question: string }
-  | { kind: "workflow"; workflow: WorkflowSnapshot };
+  | { kind: "workflow"; workflow: WorkflowSnapshot }
+) &
+  AiUsage;
 
 /** POST /api/templates */
 export interface SaveTemplateRequest {

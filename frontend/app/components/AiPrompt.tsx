@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { AI_PROMPTS_PER_DAY } from "@/types/breakout";
+
 import { Button, Spinner } from "./ui";
 
 const SUGGESTIONS = ["Speed networking", "Workshop, 3 activities", "New-hire icebreaker"];
@@ -13,10 +15,12 @@ const STAGE_MS = 3000;
 /** The landing's AI box: describe the session, Generate; while waiting, a timed progress line and Cancel. */
 export default function AiPrompt({
   pending,
+  promptsLeft,
   onGenerate,
   onCancel,
 }: {
   pending: boolean;
+  promptsLeft: number | null;
   /** Resolves true when the AI answered, so the box clears; false keeps the text. */
   onGenerate: (text: string) => Promise<boolean>;
   onCancel: () => void;
@@ -70,7 +74,21 @@ export default function AiPrompt({
           ))}
         </div>
       )}
+      <AiUsageNote promptsLeft={promptsLeft} />
     </div>
+  );
+}
+
+/** The host's AI prompts left today; amber from the last few. Hidden until the count is read. */
+export function AiUsageNote({ promptsLeft }: { promptsLeft: number | null }) {
+  if (promptsLeft === null) return null;
+  const low = promptsLeft <= 5;
+  return (
+    <p className={`bw-ai-usage${low ? " bw-ai-usage--low" : ""}`}>
+      {promptsLeft === 0
+        ? "No AI prompts left today. They reset at midnight UTC."
+        : `${promptsLeft} of ${AI_PROMPTS_PER_DAY} AI prompts left today`}
+    </p>
   );
 }
 

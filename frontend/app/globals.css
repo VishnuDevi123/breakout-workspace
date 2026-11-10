@@ -1119,6 +1119,22 @@ input[type="checkbox"] {
     linear-gradient(90deg, #38bdf8, var(--bw-accent), #a3e635) border-box;
 }
 
+/* The host's AI prompts left today, under the landing prompt and the chat composer. */
+.bw-ai-usage {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+
+.bw-ai-panel__composer + .bw-ai-usage {
+  margin: -6px 16px 12px;
+}
+
+.bw-ai-usage--low {
+  color: var(--bw-amber-deep);
+}
+
 .bw-ai-resume {
   border: 0;
   background: none;
