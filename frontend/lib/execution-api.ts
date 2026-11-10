@@ -52,11 +52,21 @@ export class ApiError extends Error {
 // response until it ends, so the SSE stream never arrives through it.
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
+/** Shown when the backend cannot be reached or a proxy answers for it (asleep, restarting, overloaded). */
+export const BACKEND_UNREACHABLE =
+  "Can't reach Breakout Workspace right now. It runs on free-tier hosting, so it can take a few seconds to respond. Try again shortly.";
+
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const send = async () => {
     const headers = new Headers(init.headers);
     headers.set("X-Zoom-App-Context", await readAppContextToken());
-    return fetch(BACKEND_URL + url, { ...init, headers });
+    try {
+      return await fetch(BACKEND_URL + url, { ...init, headers });
+    } catch (error) {
+      // A cancelled request stays an abort, so callers can still tell it apart.
+      if (init.signal?.aborted) throw error;
+      throw new ApiError(BACKEND_UNREACHABLE, 0);
+    }
   };
   const response = await send();
   if (response.status !== 401) return response;
@@ -64,8 +74,11 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
   return send();
 }
 
-async function apiResult<T>(response: Response): Promise<T> {
-  const result = (await response.json()) as ApiResponse<T>;
+export async function apiResult<T>(response: Response): Promise<T> {
+  // Our backend always answers JSON; anything else is Render's proxy page.
+  const result = (await response.json().catch(() => {
+    throw new ApiError(BACKEND_UNREACHABLE, response.status);
+  })) as ApiResponse<T>;
   if (!response.ok || !result.success) {
     throw new ApiError(
       result.success ? `Backend returned ${response.status}.` : result.error,

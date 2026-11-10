@@ -188,6 +188,10 @@ router.post("/room-links", hostOnly, async (req, res) => {
   res.json(body);
 });
 
+// A comment line on a quiet stream, so proxies keep it open and the client can tell a live
+// stream from a dead one (use-live-state reconnects after a longer silence).
+const HEARTBEAT_MS = 20_000;
+
 /** Server-sent events: current state on connect, then every change until the client disconnects. */
 router.get("/events", anyoneInMeeting, async (req, res) => {
   const parentUUID = res.locals.caller.meetingUUID;
@@ -202,7 +206,12 @@ router.get("/events", anyoneInMeeting, async (req, res) => {
   };
 
   // Listen first, so a change during the first read is not missed.
-  req.on("close", subscribe(parentUUID, send));
+  const unsubscribe = subscribe(parentUUID, send);
+  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), HEARTBEAT_MS);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
   send(await getLive(parentUUID));
 });
 

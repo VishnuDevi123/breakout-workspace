@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useHostGate } from "@/lib/host-gate";
 
+import ConnectionNotice from "./ConnectionNotice";
 import HostWorkspace from "./screens/HostWorkspace";
 import LoadingScreen from "./screens/LoadingScreen";
 import ParticipantScreen from "./screens/ParticipantScreen";
@@ -38,6 +39,7 @@ export default function ZoomClient() {
       <div hidden={!minElapsed}>
         <GateScreen />
       </div>
+      <ConnectionNotice />
     </>
   );
 }

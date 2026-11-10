@@ -3,14 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import type {
-  ApiResponse,
   PastWorkflow,
   RoundMeta,
   SaveWorkspaceRequest,
   WorkflowSnapshot,
   Workspace,
 } from "@/types/breakout";
-import { apiFetch } from "@/lib/execution-api";
+import { apiFetch, apiResult } from "@/lib/execution-api";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -19,14 +18,6 @@ type WorkspaceState =
   | { kind: "missing" }
   | { kind: "error"; message: string }
   | { kind: "ready"; workspace: Workspace };
-
-async function apiResult<T>(response: Response): Promise<T> {
-  const result = (await response.json()) as ApiResponse<T>;
-  if (!response.ok || !result.success) {
-    throw new Error(result.success ? `Backend returned ${response.status}.` : result.error);
-  }
-  return result.data;
-}
 
 /** Display label by position; ids never encode position. */
 export function roundLabel(workspace: Workspace, roundId: string): string {

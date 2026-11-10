@@ -11,7 +11,7 @@ import {
   type RoundPlanDraft,
   type SaveRoundPlanRequest,
 } from "@/types/breakout";
-import { apiFetch } from "@/lib/execution-api";
+import { apiFetch, BACKEND_UNREACHABLE } from "@/lib/execution-api";
 import {
   assignParticipantToRoom,
   shuffleEvenly,
@@ -83,7 +83,8 @@ async function readError(response: Response): Promise<string> {
     const result = (await response.json()) as ApiResponse<never>;
     if (!result.success) return result.error;
   } catch {
-    // Infrastructure errors may return HTML or an empty response.
+    // Render's proxy answers HTML or nothing when the backend is down.
+    return BACKEND_UNREACHABLE;
   }
   return `Backend returned ${response.status}.`;
 }

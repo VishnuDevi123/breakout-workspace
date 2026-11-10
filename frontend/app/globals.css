@@ -4672,3 +4672,52 @@ button.bw-challenge-option__mark[aria-checked="true"] {
     background-size: 100% 100%, auto;
   }
 }
+
+/* The live stream is down for a few seconds: cold start or restart of the backend. */
+.bw-connection {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(440px, calc(100% - 32px));
+  padding: 12px 16px;
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-md);
+  background: var(--bw-surface);
+  box-shadow: var(--bw-shadow-2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 200ms ease, transform 200ms ease, visibility 0s linear 200ms;
+}
+
+.bw-connection--shown {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.bw-connection__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--bw-fs-section);
+  color: var(--bw-ink);
+}
+
+.bw-connection__text {
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw-connection,
+  .bw-connection--shown {
+    transform: translate(-50%, 0);
+  }
+}
