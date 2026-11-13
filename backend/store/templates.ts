@@ -88,6 +88,17 @@ export async function deleteTemplate(ownerUid: string, templateId: unknown): Pro
   return getTemplates(ownerUid);
 }
 
+/** Remove all of the owner's templates, when they remove the app (app_deauthorized). */
+export async function deleteTemplatesOf(ownerUid: string): Promise<void> {
+  // One DeleteItem each: a host has a handful, and the backend's IAM policy allows no batch write here.
+  const templates = await getTemplates(ownerUid);
+  await Promise.all(
+    templates.map(({ id }) =>
+      documentClient().send(new DeleteCommand({ TableName: templatesTable(), Key: { ownerUid, id } })),
+    ),
+  );
+}
+
 /** The owner's templates, newest first. One query: a host has a handful, far below a page (1 MB). */
 export async function getTemplates(ownerUid: string): Promise<SavedTemplate[]> {
   const result = await documentClient().send(

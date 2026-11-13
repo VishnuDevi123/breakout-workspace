@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import dotenv from "dotenv";
+import { deleteAiUsage } from "../services/ai.ts";
 import { deleteItems } from "../services/dynamo.ts";
 import { applyEvent } from "../store/live.ts";
+import { deleteTemplatesOf } from "../store/templates.ts";
 
 dotenv.config();
 const router = Router();
@@ -38,6 +40,11 @@ router.post("/zoom", async (req, res) => {
   // The meeting is over for everyone: its data goes (saved templates stay).
   if (event.event === "meeting.ended" && event.payload?.object?.uuid) {
     await deleteItems(event.payload.object.uuid, "");
+  } else if (event.event === "app_deauthorized" && event.payload?.user_id) {
+    // The user removed the app: their own data goes now; meeting data goes with the meeting.
+    // Deleted before the 200, so a failure gets a 500 and Zoom sends the event again.
+    const uid = String(event.payload.user_id);
+    await Promise.all([deleteTemplatesOf(uid), deleteAiUsage(uid)]);
   } else {
     await applyEvent(event);
   }

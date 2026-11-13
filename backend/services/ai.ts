@@ -13,7 +13,7 @@ import {
   type DraftWorkflowResponse,
   type WorkflowSnapshot,
 } from "../types/breakout.ts";
-import { changeItem, readItem } from "./dynamo.ts";
+import { changeItem, deleteItems, readItem } from "./dynamo.ts";
 import { HttpError } from "./http-error.ts";
 
 // ASU CreateAI: an OpenAI-compatible API. Models are named provider/model and the
@@ -206,8 +206,15 @@ interface PromptCount {
   prompts: number;
 }
 
+const usageOwner = (uid: string) => `ai-usage#${uid}`;
+
 function usageKey(uid: string): [string, string] {
-  return [`ai-usage#${uid}`, new Date().toISOString().slice(0, 10)];
+  return [usageOwner(uid), new Date().toISOString().slice(0, 10)];
+}
+
+/** Remove the host's prompt counts, when they remove the app (app_deauthorized). */
+export async function deleteAiUsage(uid: string): Promise<void> {
+  await deleteItems(usageOwner(uid), "");
 }
 
 const promptsLeftAfter = (prompts: number) => Math.max(0, AI_PROMPTS_PER_DAY - prompts);

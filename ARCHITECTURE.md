@@ -1,6 +1,6 @@
 # Architecture
 
-Zoom App for planning and running breakout rounds. A Next.js frontend runs inside the Zoom client and is the only thing that calls the Zoom Apps SDK. An Express backend stores the plans and live state in DynamoDB, records launches, receives Zoom webhooks and pushes live state to the frontend over SSE. The backend never calls Zoom. It calls OpenAI only to draft workflows the host asks for.
+Zoom App for planning and running breakout rounds. A Next.js frontend runs inside the Zoom client and is the only thing that calls the Zoom Apps SDK. An Express backend stores the plans and live state in DynamoDB, records launches, receives Zoom webhooks and pushes live state to the frontend over SSE. The backend never calls Zoom. It calls ASU CreateAI (an OpenAI-compatible API) only to draft workflows the host asks for.
 
 ## Boundaries
 
@@ -12,7 +12,7 @@ Field lists live in `backend/types/breakout.ts`.
 | Workspace (`Workspace`, `RoundMeta`) | `backend/store/workspace.ts`, item `workspace` | `backend/routes/workspace.ts`, `frontend/lib/use-workspace.ts`, `screens/RoundsOverview.tsx` (workflow page) |
 | Host navigation (landing → workflow page → round setup [Rooms \| Tasks], plus live from the first launch until End Workflow) | `HostView` state in `screens/HostWorkspace.tsx`; no URL routes | `LandingScreen.tsx`, `RoundsOverview.tsx`, `RoundSetup.tsx`, `LiveRound.tsx`; setup and live share `PageFrame.tsx` and `NotPlacedSheet.tsx` |
 | Past workflows and saved templates (`WorkflowSnapshot`, `PastWorkflow`, `SavedTemplate`) | `backend/store/templates.ts`: past workflows as item `past`; templates in their own table (`TEMPLATES_TABLE`, key `ownerUid` + `id`) via `backend/services/dynamo.ts` | `backend/routes/templates.ts`, `/api/workspace/end\|past\|replace`, `frontend/lib/use-workflow-library.ts`, `WorkflowLibrary.tsx`, `SaveTemplateModal.tsx` |
-| AI workflow builder (`DraftWorkflowRequest`, `DraftWorkflowResponse`, `AiChatMessage`) | Nothing stored: the chat lives in the host's browser; the backend is stateless and calls OpenAI (`openai` SDK, Responses API, strict Zod schema) | `backend/services/ai.ts`, `backend/routes/ai.ts` at `/api/ai`, `frontend/lib/use-ai-builder.ts`, `AiPrompt.tsx` (landing prompt), `AiChatPanel.tsx` (chat + proposals) |
+| AI workflow builder (`DraftWorkflowRequest`, `DraftWorkflowResponse`, `AiChatMessage`) | The chat lives in the host's browser and nothing of it is stored; the backend keeps only each host's daily prompt count (item `ai-usage#<uid>` / UTC date in `MEETINGS_TABLE`) and calls CreateAI (`openai` SDK with CreateAI's base URL, Responses API, strict Zod schema) | `backend/services/ai.ts`, `backend/routes/ai.ts` at `/api/ai`, `frontend/lib/use-ai-builder.ts`, `AiPrompt.tsx` (landing prompt), `AiChatPanel.tsx` (chat + proposals) |
 | Round plan (`RoundPlan`: rooms and who is in them) | `backend/store/round-plans.ts`, item `round#<roundId>#plan` | `backend/routes/round-plans.ts`, `frontend/lib/use-room-plan.ts`, `room-plan-assignments.ts`, `room-plan-copy.ts`, `use-round-summaries.ts` |
 | Round task (`RoundTasks`, `RoomTask` incl. `checklist`, plus `activities`) | `backend/store/tasks.ts`, item `round#<roundId>#tasks` | `backend/routes/tasks.ts`, `frontend/lib/use-round-tasks.ts` (host), `use-participant-round.ts` (participant), `TaskFields.tsx`, `ActivityList.tsx` |
 | Activity responses (`RoomResponses`: answers, idea notes, checklist ticks) | `backend/store/activity_responses.ts`, item `round#<roundId>#room#<roomId>` | `backend/routes/activity_responses.ts` at `/api/responses`, `frontend/lib/use-room-responses.ts` (participant), `use-room-results.ts` (host) |
@@ -66,7 +66,8 @@ save template     host     -> POST /api/templates (from a past workflow) or POST
 use template      host     -> POST /api/workspace/replace {snapshot}     samples and saved templates; refused once a round has run
 delete template   host     -> DELETE /api/templates/:templateId
 draft with AI     host     -> POST /api/ai/workflow {messages, draft}  -> {kind:"question"} or {kind:"workflow", workflow}
-                  backend  -> OpenAI Responses API                     nothing saved; the chat is resent each turn
+                  backend  -> CreateAI Responses API                   chat not saved, resent each turn; the host's daily prompt count + 1
+AI usage          host     -> GET /api/ai/usage  -> {promptsLeft}         shown under the prompt and the chat composer
 use AI proposal   host     -> POST /api/workspace/replace {snapshot}     same path and confirm as a template
 meeting ends      Zoom     -> POST /api/webhooks/zoom meeting.ended       every item of the meeting deleted; templates stay
 ```
@@ -82,7 +83,7 @@ Every call above except the webhook carries the caller's `X-Zoom-App-Context` to
 - Round ids are stable (`round-N`, next = highest + 1). Display order comes from the array, never the id. A null title shows as "Round N".
 - Caller: every request carries the encrypted `getAppContext()` token as `X-Zoom-App-Context` (`apiFetch` in `frontend/lib/execution-api.ts`). `requireCaller` in `backend/services/app-context.ts` decrypts it, checks `exp` and `aud` (the client id), requires the token's `mid` to equal the request's `parentUUID`, and the token's `attendrole` to be allowed on the route. Only `mid`, the role, `uid` and `ts` are kept, for that request.
 - Who a participant is: webhooks map each `participant_user_id` (the token's `uid`) to the `participantUUID`s it joined with; a request that names a `participantUUID` must be one of the caller's, or 403. A token older than the caller's last role change (`ts` vs the webhook's `event_ts`) is 401, and the app reads a fresh one.
-- AI requests are host only by the token's `attendrole`, so nobody outside a meeting, and no participant, can spend the OpenAI key. The `uid` is checked, not stored.
+- AI requests are host only by the token's `attendrole`, so nobody outside a meeting, and no participant, can spend the CreateAI budget. The `uid` keys the host's daily prompt count, which expires a day after its last write.
 - Template owner: `uid` (the Zoom user id) inside the encrypted `getAppContext()` token. The host's app sends the token as `X-Zoom-App-Context`; `services/app-context.ts` decrypts it (AES-256-GCM, key = SHA-256 of `ZOOM_CLIENT_SECRET`), checks `exp` and refuses guests, who carry `iid` and no `uid`. The browser never sends a user id, and the same `uid` follows the account across meetings and devices.
 
 ## Principles
@@ -113,11 +114,13 @@ Every call above except the webhook carries the caller's `X-Zoom-App-Context` to
 ## Known limits
 
 - Webhooks sent while the backend is down are lost; the host's roster read on app open fills presence back in, but a participant whose join was missed gets 403 on room writes until they rejoin.
-- SSE subscribers are per instance: during a deploy's overlap a change reaches the other instance's streams only on the next change or reconnect.
+- SSE subscribers are per instance: during a deploy's overlap a change reaches the other instance's streams only on the next change or reconnect. The app therefore runs one backend instance.
+- The backend runs on Render's free tier: it sleeps after 15 minutes without inbound requests and takes 10–15 s to wake. An outside monitor calls `/health` every 10 minutes to keep it awake. While the backend is unreachable, requests show one "Can't reach Breakout Workspace" message and the live stream shows a reconnect notice.
 - Zoom cannot add, rename or delete rooms while rooms are open, and only the meeting owner can read who is in each room.
 - Every capability in `ZOOM_CAPABILITIES` must stay ticked on the Marketplace API list, or `config()` fails with `reason:app_not_support`.
 - Submissions exist only until End Workflow, so a participant can review past rounds only while the workflow runs.
-- An AI reply takes 4–12 s. The landing progress bar is timed, not real. Cancel only stops the browser waiting; the backend still finishes the OpenAI call.
+- An AI reply takes 2–12 s. The landing progress bar is timed, not real. Cancel only stops the browser waiting; the backend still finishes the CreateAI call and counts the prompt.
+- Each host may send `AI_PROMPTS_PER_DAY` (20) AI prompts per UTC day. Every host shares one CreateAI project budget ($100 a month, 750,000 tokens a minute); over either, CreateAI refuses and the host sees why.
 - The AI chat lives only in the open landing page: closing the panel keeps it ("Continue your AI chat" reopens it), pressing Generate starts a new one, and leaving the landing page loses it.
 
 ## Infra
@@ -130,7 +133,8 @@ Local development:
 - DynamoDB: the same tables as production, so a local backend restart keeps meeting data.
 
 Production:
-- Render runs the Express backend.
+- Render runs the Express backend (free tier, one instance), kept awake by an outside monitor calling `GET /health`.
+- ASU CreateAI (production, `https://api-main.aiml.asu.edu/v1`) runs the AI builder with the project's service token in `CREATEAI_API_KEY`.
 - DynamoDB stores meeting data.
 - AWS Amplify hosts the Next.js frontend.
 
