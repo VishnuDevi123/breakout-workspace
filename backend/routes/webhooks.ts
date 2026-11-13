@@ -36,15 +36,21 @@ router.post("/zoom", async (req, res) => {
     res.json({ plainToken, encryptedToken: hmacHex(plainToken) });
     return;
   }
+  // The event name only: ids and names stay out of the logs.
   console.log("webhook:", event.event);
   // The meeting is over for everyone: its data goes (saved templates stay).
   if (event.event === "meeting.ended" && event.payload?.object?.uuid) {
     await deleteItems(event.payload.object.uuid, "");
-  } else if (event.event === "app_deauthorized" && event.payload?.user_id) {
+  } else if (event.event === "app_deauthorized") {
     // The user removed the app: their own data goes now; meeting data goes with the meeting.
     // Deleted before the 200, so a failure gets a 500 and Zoom sends the event again.
-    const uid = String(event.payload.user_id);
-    await Promise.all([deleteTemplatesOf(uid), deleteAiUsage(uid)]);
+    const uid = event.payload?.user_id;
+    if (!uid) {
+      console.warn("webhook: app_deauthorized without a user_id, nothing deleted");
+    } else {
+      await Promise.all([deleteTemplatesOf(String(uid)), deleteAiUsage(String(uid))]);
+      console.log("webhook: app_deauthorized, saved templates and AI usage deleted");
+    }
   } else {
     await applyEvent(event);
   }

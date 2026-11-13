@@ -155,12 +155,13 @@ router.post("/roster", hostOnly, async (req, res) => {
   const parentUUID = res.locals.caller.meetingUUID;
   const participants = rosterFrom(req.body?.participants);
   if (!participants) {
-    console.log("roster: rejected, an empty or invalid participants list");
+    console.warn("roster: refused, an empty or invalid participants list");
     throw new HttpError("A non-empty list of valid participants is required.", 400);
   }
   const state = await applyRoster(parentUUID, participants);
   const present = state.participants.filter((p) => p.location !== "left").length;
-  console.log(`roster: ${participants.length} from Zoom for ${parentUUID}, ${present} now present`);
+  // Counts only: the meeting UUID stays out of the logs.
+  console.log(`roster: ${participants.length} from Zoom, ${present} now present`);
   const body: ApiResponse<LiveState> = { success: true, data: state };
   res.json(body);
 });
