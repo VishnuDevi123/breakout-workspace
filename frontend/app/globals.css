@@ -1718,6 +1718,10 @@ input[type="checkbox"] {
 }
 
 /* ── Participant landing ───────────────────────────────────────────── */
+.bw-waiting-lede {
+  text-align: center;
+}
+
 .bw-participant-main {
   align-items: center;
   justify-content: center;
@@ -1818,8 +1822,10 @@ input[type="checkbox"] {
   background: var(--bw-accent-tint);
 }
 .bw-participant-card__label {
-  font-size: var(--bw-fs-meta);
+  font-size: var(--bw-fs-label);
   font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--bw-muted-3);
 }
 .bw-participant-card__label--accent {
@@ -2786,6 +2792,28 @@ a.bw-resource-row:hover {
   box-shadow: 0 -6px 20px rgb(23 32 51 / 10%);
   overflow: hidden;
 }
+.bw-sheet--slide {
+  animation: bw-sheet-in 220ms ease-out;
+}
+.bw-sheet--closing {
+  animation: bw-sheet-out 180ms ease-in forwards;
+}
+@keyframes bw-sheet-in {
+  from { transform: translateY(100%); }
+}
+@keyframes bw-sheet-out {
+  to { transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bw-sheet--slide { animation-name: bw-fade-in; }
+  .bw-sheet--closing { animation-name: bw-fade-out; }
+}
+@keyframes bw-fade-in {
+  from { opacity: 0; }
+}
+@keyframes bw-fade-out {
+  to { opacity: 0; }
+}
 .bw-sheet__handle {
   flex: none;
   height: 20px;
@@ -2848,7 +2876,8 @@ a.bw-resource-row:hover {
   font-weight: 500;
 }
 .bw-sheet__person .bw-placement-select {
-  width: 104px;
+  /* Fits "Choose room" and the arrow. */
+  width: 132px;
   height: 32px;
 }
 

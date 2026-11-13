@@ -185,6 +185,8 @@ export default function LiveRound({
   const waiting = participants.filter(
     (p) => p.location === "main" && p.role === "attendee" && !planned.has(p.participantUUID),
   );
+  // True while the not-placed sheet is on screen, including its slide out.
+  const [sheetUp, setSheetUp] = useState(false);
 
   async function revealLatest() {
     if (challenges.latest) await challenges.reveal(challenges.latest.id);
@@ -276,7 +278,7 @@ export default function LiveRound({
               title="Take a minute off this round"
               onClick={() => void adjustTime(-ADJUST_STEP_SEC)}
             >
-              -
+              −
             </button>
             <button
               disabled={!open}
@@ -293,8 +295,12 @@ export default function LiveRound({
     </>
   );
 
+  // During a round the sheet is only for people still to place: it slides in when someone
+  // joins late and slides out once the last of them is placed.
+  const hasWaiting = waiting.length > 0;
+  if (hasWaiting && !sheetUp) setSheetUp(true);
   const sheet =
-    page === "rooms" && !openRoom && open ? (
+    page === "rooms" && !openRoom && open && sheetUp ? (
       <NotPlacedSheet
         people={waiting}
         rooms={round.rooms}
@@ -305,6 +311,7 @@ export default function LiveRound({
         onPlaceEvenly={() =>
           void place("all", autoAssignParticipantsEvenly(round, waiting.map((p) => p.participantUUID)))
         }
+        slide={{ closing: !hasWaiting, onClosed: () => setSheetUp(false) }}
       />
     ) : null;
 
@@ -492,7 +499,7 @@ function LiveRoomCard({
         <StatusDot color={dot} />
         <span className="bw-room-name bw-live-room-name" title={name}>{name}</span>
         <div style={{ flex: 1 }} />
-        <Pill tone="outline">{members.length} / {plannedCount}</Pill>
+        {open ? <Pill tone="outline">{members.length} / {plannedCount}</Pill> : null}
       </div>
       {members.length > 0 ? (
         <div className="bw-initials-list">

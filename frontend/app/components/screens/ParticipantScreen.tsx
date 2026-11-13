@@ -159,15 +159,13 @@ export default function ParticipantScreen({
 
           <div className="bw-landing-cards">
             <Card className="bw-participant-card bw-participant-card--accent">
-              <span className="bw-mono bw-participant-card__label bw-participant-card__label--accent">
-                THIS ROUND
-              </span>
+              <span className="bw-participant-card__label bw-participant-card__label--accent">This round</span>
               <span className="bw-participant-card__title">{roundTitle}</span>
-              <span className="bw-participant-card__meta">
-                {task
-                  ? `${task.instructions.length} instructions · ${task.resources.length} resources`
-                  : "Nothing set yet"}
-              </span>
+              {task ? (
+                <span className="bw-participant-card__meta">
+                  {task.instructions.length} instructions · {task.resources.length} resources
+                </span>
+              ) : null}
             </Card>
 
             <TimeCard endsAt={liveState?.round?.endsAt ?? 0} />
@@ -203,7 +201,7 @@ function TimeCard({ endsAt }: { endsAt: number }) {
 
   return (
     <Card className="bw-participant-card">
-      <span className="bw-mono bw-participant-card__label">TIME</span>
+      <span className="bw-participant-card__label">Time</span>
       <span className="bw-mono bw-participant-card__clock">
         {remainingSec === null ? "--:--" : formatClock(remainingSec)}
       </span>
@@ -241,7 +239,7 @@ function Roster({
       <span className="bw-participant-roster__names">
         {names.length > 0 ? names.join(", ") : "nobody else has arrived yet"}
       </span>
-      <span className="bw-mono bw-participant-roster__count">
+      <span className="bw-participant-roster__count">
         {others.length + 1} of {room.participantUUIDs.length} here
       </span>
     </div>

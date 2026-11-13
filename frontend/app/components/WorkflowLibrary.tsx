@@ -10,9 +10,6 @@ import type { PastWorkflow, SavedTemplate, WorkflowSnapshot } from "@/types/brea
 import SaveTemplateModal, { plural } from "./SaveTemplateModal";
 import { Button, ConfirmModal } from "./ui";
 
-/** Default title for a workflow started from a sample. */
-const SAMPLE_TITLE = "Sample Workflow";
-
 function roomCount(workflow: WorkflowSnapshot): number {
   return workflow.rounds.reduce((sum, round) => sum + round.roomNames.length, 0);
 }
@@ -129,7 +126,7 @@ export default function WorkflowLibrary({
                   title={template.name}
                   meta={`${plural(template.rounds.length, "round")} · ${formatClock(template.rounds.reduce((sum, round) => sum + round.durationSec, 0))}`}
                   busy={busy}
-                  onOpen={() => use(sampleSnapshot(template, SAMPLE_TITLE))}
+                  onOpen={() => use(sampleSnapshot(template))}
                 />
               ))
             : null}

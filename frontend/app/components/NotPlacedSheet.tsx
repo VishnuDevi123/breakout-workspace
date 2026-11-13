@@ -36,6 +36,7 @@ export default function NotPlacedSheet({
   stayingInMain = [],
   onKeepInMain,
   onReturn,
+  slide,
 }: {
   people: SheetPerson[];
   rooms: PlannedRoom[];
@@ -49,6 +50,8 @@ export default function NotPlacedSheet({
   onKeepInMain?: (participantUUID: string) => void;
   /** Planning only: moves someone kept in main back to the waiting list. */
   onReturn?: (participantUUID: string) => void;
+  /** Live only: the sheet slides in when shown, and out (then onClosed) while closing. */
+  slide?: { closing: boolean; onClosed: () => void };
 }) {
   const sheetRef = useRef<HTMLElement>(null);
   // Null: size to the content, capped by CSS at 40%.
@@ -120,8 +123,11 @@ export default function NotPlacedSheet({
   return (
     <section
       ref={sheetRef}
-      className="bw-sheet"
+      className={slide ? `bw-sheet bw-sheet--slide${slide.closing ? " bw-sheet--closing" : ""}` : "bw-sheet"}
       style={height === null ? undefined : { height, maxHeight: "none" }}
+      onAnimationEnd={(event) => {
+        if (slide?.closing && event.target === event.currentTarget) slide.onClosed();
+      }}
       aria-label="Not yet placed"
     >
       <div
@@ -171,7 +177,7 @@ export default function NotPlacedSheet({
               }}
             >
               <option value="" disabled>
-                Room…
+                Choose room
               </option>
               {rooms.map((room) => (
                 <option key={room.id} value={room.id}>

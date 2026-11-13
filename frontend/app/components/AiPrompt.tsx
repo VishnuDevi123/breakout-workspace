@@ -47,7 +47,7 @@ export default function AiPrompt({
           className="bw-ai-prompt__input"
           value={text}
           maxLength={2000}
-          placeholder="e.g. 45-min team retro, new groups each round"
+          placeholder="e.g. 45-min team retro"
           aria-label="Describe your session"
           readOnly={pending}
           onChange={(event) => setText(event.target.value)}
