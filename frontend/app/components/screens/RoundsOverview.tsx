@@ -83,7 +83,7 @@ export default function RoundsOverview({
   onPlansChanged: () => void;
   live: LiveState | null;
   role: ZoomRole | null;
-  onLaunched: (roundId: string) => void;
+  onLaunched: (roundId: string, saved: Workspace | null) => void;
   onHome: () => void;
   onAddRound: () => Promise<void>;
   onDeleteRound: (roundId: string) => Promise<void>;
@@ -486,7 +486,7 @@ function LaunchWorkflow({
   /** "New groups": at launch, people who left are dropped and everyone present gets a room. */
   settledAtLaunch: boolean;
   prepareLaunch: (roundId: string) => Promise<void>;
-  onLaunched: (roundId: string) => void;
+  onLaunched: (roundId: string, saved: Workspace | null) => void;
   /** Shown above the Launch button (Save as template). */
   children: React.ReactNode;
 }) {

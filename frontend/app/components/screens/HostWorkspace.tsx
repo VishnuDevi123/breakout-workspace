@@ -135,6 +135,15 @@ export default function HostWorkspace({
     rounds.find(isPlanned) ??
     null;
 
+  /** Both launch paths (overview and live view) end here, so the round's new status is shown at once. */
+  function showLaunched(roundId: string, saved: Workspace | null) {
+    if (saved) workspace.applyWorkspace(saved);
+    // "Same" and "New groups" wrote this round's plan just before launch; show what launched.
+    reloadPlans();
+    setLaunchedRoundId(roundId);
+    setView("live");
+  }
+
   const controller = useLiveRoomController({
     parentUUID: meetingUUID,
     role,
@@ -148,13 +157,7 @@ export default function HostWorkspace({
     // Launching happens from saved drafts; the live view has no pending edits.
     flushSave: () => Promise.resolve(true),
     prepareLaunch: prepareGroupsForLaunch,
-    onLaunched: (roundId, saved) => {
-      if (saved) workspace.applyWorkspace(saved);
-      // "Same" and "New groups" wrote this round's plan just before launch; show what launched.
-      reloadPlans();
-      setLaunchedRoundId(roundId);
-      setView("live");
-    },
+    onLaunched: showLaunched,
     onClosed: (saved) => {
       if (saved) workspace.applyWorkspace(saved);
       if (!closedByTimer.current) return;
@@ -509,10 +512,7 @@ export default function HostWorkspace({
         onPlansChanged={reloadPlans}
         live={live.liveState}
         role={role}
-        onLaunched={(roundId) => {
-          setLaunchedRoundId(roundId);
-          setView("live");
-        }}
+        onLaunched={showLaunched}
         onHome={() => setView("landing")}
         onAddRound={async () => void (await workspace.addRound())}
         onDeleteRound={workspace.deleteRound}

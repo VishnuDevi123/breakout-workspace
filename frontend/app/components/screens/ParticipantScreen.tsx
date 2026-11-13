@@ -88,10 +88,15 @@ export default function ParticipantScreen({
   }
 
   if (!roundId) {
+    const roundsRan = earlierRounds.length > 0;
     return (
       <WaitingScreen
-        headline="No round running yet"
-        lede="Your host hasn't started breakout rooms yet. When they do, this page will show your room and task."
+        headline={roundsRan ? "That round has ended" : "No round running yet"}
+        lede={
+          roundsRan
+            ? "You're back in the main room. If your host starts another round, this page will be updated with your room and task."
+            : "Your host hasn't started breakout rooms yet. When they do, this page will show your room and task."
+        }
       >
         {earlier}
       </WaitingScreen>
