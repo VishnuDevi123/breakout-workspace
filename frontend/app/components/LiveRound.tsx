@@ -369,6 +369,7 @@ export default function LiveRound({
             plans={plans}
             tasks={tasks}
             open={open}
+            nextRound={nextRound}
             canEditRounds={canRunRounds}
             onEditTask={() => setEditingTask(true)}
             onAddRound={onAddRound}
