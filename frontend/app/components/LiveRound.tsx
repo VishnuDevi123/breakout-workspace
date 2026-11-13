@@ -23,6 +23,7 @@ import type {
   RoundPlanDraft,
   Workspace,
 } from "@/types/breakout";
+import { MAX_ROOMS } from "@/types/breakout";
 
 import { toast } from "sonner";
 
@@ -79,6 +80,7 @@ export default function LiveRound({
   onSkipRound,
   onEndRound,
   onLaunchNext,
+  onLaunchNextWithRooms,
   onEndWorkflow,
   onPlace,
   onMove,
@@ -100,6 +102,8 @@ export default function LiveRound({
   onSkipRound: (roundId: string, skipped: boolean) => Promise<void>;
   onEndRound: () => void;
   onLaunchNext: () => void;
+  /** Gives the next round `count` rooms with everyone placed evenly, then launches it. */
+  onLaunchNextWithRooms: (count: number) => Promise<void>;
   /** Offered once every round has run. Reports its own errors. */
   onEndWorkflow: () => Promise<void>;
   /** Saves the round with people added to rooms and moves them in Zoom. Reports its own errors. */
@@ -185,6 +189,9 @@ export default function LiveRound({
   const waiting = participants.filter(
     (p) => p.location === "main" && p.role === "attendee" && !planned.has(p.participantUUID),
   );
+  // The room count being chosen for a next round that has no rooms; null when not asking.
+  const [roomCount, setRoomCount] = useState<number | null>(null);
+
   // True while the not-placed sheet is on screen, including its slide out.
   const [sheetUp, setSheetUp] = useState(false);
 
@@ -235,6 +242,12 @@ export default function LiveRound({
     return uuid ? participants.filter((p) => p.location === uuid) : [];
   }
 
+  // "Same groups" builds the next round's rooms at launch; any other mode launches the rooms
+  // the host planned, so a round without them asks for a room count first. Undefined: plans still loading.
+  const nextPlan = nextRound ? plans[nextRound.roundId] : undefined;
+  const sameGroups = workspace.sameRoomsEveryRound && workspace.samePeopleEveryRound;
+  const nextNeedsSetup = !sameGroups && nextPlan !== undefined && !nextPlan?.rooms.length;
+
   // Keyed so a swap (adding or deleting the last upcoming round) fades in.
   // A co-host has no round controls; the slot names their role so the missing buttons read as intended.
   const actionButton = !canRunRounds ? (
@@ -244,7 +257,14 @@ export default function LiveRound({
       End round
     </Button>
   ) : nextRound ? (
-    <Button key="launch-next" className="bw-swap-in" size="sm" busy={busy} onClick={onLaunchNext}>
+    <Button
+      key="launch-next"
+      className="bw-swap-in"
+      size="sm"
+      busy={busy}
+      // The count starts at this round's number of rooms.
+      onClick={nextNeedsSetup ? () => setRoomCount(Math.max(1, round.rooms.length)) : onLaunchNext}
+    >
       Launch {roundLabel(workspace, nextRound.roundId)}
     </Button>
   ) : (
@@ -392,6 +412,39 @@ export default function LiveRound({
         )}
       </PageFrame>
 
+      {roomCount !== null && nextRound ? (
+        <ConfirmModal
+          title={`Rooms for ${roundLabel(workspace, nextRound.roundId)}`}
+          message="This round has no rooms yet. Choose how many it needs."
+          details={
+            <div className="bw-stepper bw-confirm-stepper">
+              <button
+                type="button"
+                aria-label="Fewer rooms"
+                disabled={roomCount <= 1}
+                onClick={() => setRoomCount(roomCount - 1)}
+              >
+                −
+              </button>
+              <span className="bw-room-count">
+                {roomCount} {roomCount === 1 ? "room" : "rooms"}
+              </span>
+              <button
+                type="button"
+                aria-label="More rooms"
+                disabled={roomCount >= MAX_ROOMS}
+                onClick={() => setRoomCount(roomCount + 1)}
+              >
+                +
+              </button>
+            </div>
+          }
+          confirmLabel="Apply and launch"
+          confirmVariant="primary"
+          onConfirm={() => onLaunchNextWithRooms(roomCount)}
+          onClose={() => setRoomCount(null)}
+        />
+      ) : null}
       {confirmingEnd ? (
         <ConfirmModal
           title={`End ${round.title} now?`}

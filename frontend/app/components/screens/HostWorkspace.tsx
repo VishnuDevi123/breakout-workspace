@@ -12,12 +12,12 @@ import { copyRooms, groupsForLaunch } from "@/lib/room-plan-copy";
 import { settleForLaunch } from "@/lib/room-plan-assignments";
 import { useLiveRoomController } from "@/lib/use-live-room-controller";
 import { useLiveState } from "@/lib/use-live-state";
-import { useRoomPlan } from "@/lib/use-room-plan";
+import { newRoom, useRoomPlan } from "@/lib/use-room-plan";
 import { useRoundTasks } from "@/lib/use-round-tasks";
 import { useRoundSummaries } from "@/lib/use-round-summaries";
 import { useWorkflowLibrary } from "@/lib/use-workflow-library";
 import { roundLabel, useWorkspace } from "@/lib/use-workspace";
-import type { LiveState, RoundMeta, RoundPlanDraft, WorkflowSnapshot, Workspace, ZoomRole } from "@/types/breakout";
+import type { LiveState, PlannedRoom, RoundMeta, RoundPlanDraft, WorkflowSnapshot, Workspace, ZoomRole } from "@/types/breakout";
 
 import LiveRound from "../LiveRound";
 import WorkflowLibrary from "../WorkflowLibrary";
@@ -309,6 +309,31 @@ export default function HostWorkspace({
     await saveRoundPlan(meetingUUID, groupsForLaunch(source, target, present), existing?.revision ?? 0);
   }
 
+  /**
+   * "I'll set up each round" between rounds: the next round has no rooms yet. It gets
+   * `count` empty rooms and launches as usual; the host places people from the live view.
+   */
+  async function launchNextWithRooms(count: number) {
+    if (!nextRound || workspace.state.kind !== "ready") return;
+    const current = workspace.state.workspace;
+    const roundId = nextRound.roundId;
+    await reportFailure("Could not set up the rooms.", async () => {
+      const rooms: PlannedRoom[] = [];
+      while (rooms.length < count) rooms.push(newRoom(rooms));
+      const draft: RoundPlanDraft = {
+        parentUUID: meetingUUID,
+        roundId,
+        title: roundLabel(current, roundId),
+        rooms,
+        stayInMainParticipantUUIDs: [],
+      };
+      // A round with no rooms may still have an empty saved plan; its revision is needed to replace it.
+      const saved = await readSavedRoundPlan(meetingUUID, roundId).catch(() => null);
+      await saveRoundPlan(meetingUUID, draft, saved?.revision ?? 0);
+      controller.launch(roundId);
+    });
+  }
+
   /** Runs a live-page action and turns a failure into a toast; the caller's spinner then stops. */
   async function reportFailure(failure: string, action: () => Promise<unknown>) {
     try {
@@ -489,6 +514,7 @@ export default function HostWorkspace({
         }
         onEndRound={controller.close}
         onLaunchNext={() => nextRound && controller.launch(nextRound.roundId)}
+        onLaunchNextWithRooms={launchNextWithRooms}
         onEndWorkflow={endWorkflow}
         onPlace={placeInLiveRound}
         onMove={moveInLiveRound}

@@ -2524,6 +2524,11 @@ a.bw-resource-row:hover {
   line-height: 1.5;
   color: var(--bw-muted);
 }
+/* A count picked inside a confirm modal (rooms for the next round). */
+.bw-confirm-stepper {
+  width: fit-content;
+  margin-top: 14px;
+}
 /* ── Workflow page: rounds (60%) beside workflow settings (40%) ──────── */
 .bw-workflow {
   display: grid;
