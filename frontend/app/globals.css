@@ -6,6 +6,8 @@
  */
 
 :root {
+  /* One library card (title and meta line). */
+  --bw-library-row-h: 74px;
   color-scheme: light;
 
   /* Surfaces */
@@ -441,7 +443,8 @@ input[type="checkbox"] {
   background: var(--bw-surface);
 }
 
-/* Exactly one window tall, so the page's own lists scroll instead of the page growing. */
+/* Exactly one window tall: the header stays pinned and the area below it scrolls on its own.
+   Every screen with a .bw-header uses it. */
 .bw-shell--fit {
   height: 100dvh;
   min-height: 0;
@@ -591,10 +594,10 @@ input[type="checkbox"] {
   text-align: center;
 }
 
-/* Home: starts at the top and fills the window, so changing library tab moves nothing above it. */
+/* Home: the hero, prompt, builds and the library's slot are centred as one group of a fixed
+   height, so switching library tab never moves anything above it. */
 .bw-landing--home {
-  flex: 1 1 0;
-  margin-block: 0;
+  flex: none;
 }
 
 /* Every landing state fades in, including the return after End Workflow. */
@@ -635,14 +638,24 @@ input[type="checkbox"] {
   }
 }
 
-/* Library under the landing column: one box holding the tabs and a list of cards. */
+/* The library's place in the centred group: the tabs and one card row.
+   Fixed parts: tabs 43, list top padding 10, box padding 16, border 2. */
+.bw-library-slot {
+  position: relative;
+  flex: none;
+  width: 100%;
+  height: calc(var(--bw-library-row-h) + 71px);
+  margin-top: 8px;
+}
+
+/* One box holding the tabs and a list of cards. It fills the slot and grows down past it, as far as
+   the max-height WorkflowLibrary sets (the bottom of the page); its list scrolls beyond that. */
 .bw-library {
-  flex: 1 1 200px;
-  min-height: 200px;
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  margin-top: 8px;
   padding: 4px 12px 12px;
   border: 1px solid var(--bw-border);
   border-radius: var(--bw-radius-lg);
@@ -681,8 +694,9 @@ input[type="checkbox"] {
 /* Always scrollable, so rows keep their width between tabs; the scrollbar sits in the box padding.
    No scrollbar-width here: with it WebKit draws a native track even on a list too short to scroll. */
 .bw-library-list {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 1 auto;
+  /* At least one card row stays visible; below that the page scrolls. */
+  min-height: var(--bw-library-row-h);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -771,9 +785,20 @@ input[type="checkbox"] {
   color: var(--bw-muted);
 }
 
+/* As tall as one card, so an empty tab keeps the box's height. */
 .bw-library-empty {
+  display: flex;
+  align-items: center;
+  min-height: var(--bw-library-row-h);
   margin: 0;
   padding: 4px 14px;
+}
+
+/* Templates: two cards per row. */
+.bw-library-list--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
 }
 
 /* Header action that changes (Launch next <-> End Workflow) fades in. */
@@ -937,7 +962,7 @@ input[type="checkbox"] {
 
 /* Everything under the prompt; dims while the AI works. */
 .bw-landing-rest {
-  flex: 1 1 0;
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2530,17 +2555,29 @@ a.bw-resource-row:hover {
   margin-top: 14px;
 }
 /* ── Workflow page: rounds (60%) beside workflow settings (40%) ──────── */
+/* The rounds and the settings rail scroll on their own under the pinned header. */
 .bw-workflow {
   display: grid;
   grid-template-columns: minmax(0, 6.5fr) minmax(0, 3.25fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.bw-workflow > .bw-rail {
+  overflow-y: auto;
 }
 .bw-workflow__settings {
   width: auto;
   gap: 14px;
 }
+/* One column: rounds then settings scroll together as one area. */
 @media (max-width: 639px) {
   .bw-workflow {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    overflow-y: auto;
+  }
+  .bw-workflow > .bw-main,
+  .bw-workflow > .bw-rail {
+    overflow: visible;
   }
 }
 .bw-choice-list {

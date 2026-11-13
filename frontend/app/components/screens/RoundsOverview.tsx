@@ -209,7 +209,7 @@ export default function RoundsOverview({
   }
 
   return (
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <button
           type="button"

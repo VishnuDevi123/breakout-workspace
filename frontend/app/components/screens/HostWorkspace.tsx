@@ -61,7 +61,7 @@ function rosterFrom(live: LiveState | null): Participant[] {
 /** Shell for the one screen with nothing to edit yet: the workspace failed to load. */
 function HostShell({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <BrandMark />
         <div className="bw-round-heading">
