@@ -215,8 +215,12 @@ export function useLiveRoomController(input: ControllerInput) {
       try {
         const { sdk, hostUUID } = await hostSdk();
         const roster = await readMeetingRoster(sdk, input.round, hostUUID);
-        // A co-host's list carries no people; the backend would refuse it.
-        if (!roster || roster.length === 0) return;
+        // null: this host cannot see every room (not the meeting owner). The backend takes a
+        // roster as the whole meeting, so a partial or empty one is never sent.
+        if (!roster || roster.length === 0) {
+          console.warn("Roster: Zoom did not return the whole meeting; nothing sent.");
+          return;
+        }
         await postRoster(input.parentUUID, roster);
       } catch (error) {
         // The host is not interrupted: webhooks keep the list current from here on.

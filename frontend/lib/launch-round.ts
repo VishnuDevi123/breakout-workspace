@@ -159,7 +159,8 @@ function meetingRole(role: string): MeetingRole {
 /**
  * Everyone Zoom reports in the meeting, or null when this caller cannot see them all.
  * With rooms open only the room list covers every room, and only the meeting
- * owner receives its people; a co-host gets empty rooms, which is not an empty meeting.
+ * owner receives its people; anyone else (a co-host, or a host who is not the owner)
+ * gets empty rooms, which is not an empty meeting.
  */
 export async function readMeetingRoster(
   sdk: ZoomSdk,
@@ -179,6 +180,8 @@ export async function readMeetingRoster(
     }));
   }
   if (!rooms.unassigned) return null;
+  // Open rooms that list nobody: this caller is not the owner. The main room alone is not the meeting.
+  if (!rooms.rooms.some((room) => (room.participants ?? []).length > 0)) return null;
   // The room list carries no roles; only the reader's own seat is known.
   const roleOf = (participantUUID: string): MeetingRole => (participantUUID === hostUUID ? "host" : "attendee");
 

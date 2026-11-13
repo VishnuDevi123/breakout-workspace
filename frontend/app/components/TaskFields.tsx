@@ -85,9 +85,6 @@ export default function TaskFields({
 
       <div className="bw-field">
         <SectionLabel>Checklist</SectionLabel>
-        <SectionLabel className="bw-field__subheading">
-          Anyone in the room can tick
-        </SectionLabel>
         <LineList
           lines={task.checklist.map((item) => item.label)}
           numbered={false}
