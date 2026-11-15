@@ -8,8 +8,7 @@ import { formatClock } from "@/lib/round-clock";
 import { shuffleEvenly } from "@/lib/room-plan-assignments";
 import { copyRooms } from "@/lib/room-plan-copy";
 import { useLiveRoomController } from "@/lib/use-live-room-controller";
-import { useScrollReveal } from "@/lib/use-scroll-reveal";
-import { newRoom } from "@/lib/use-room-plan";
+import { withRoomCount } from "@/lib/use-room-plan";
 import { MAX_ROOMS } from "@/types/breakout";
 import { roundLabel } from "@/lib/use-workspace";
 import type {
@@ -21,6 +20,7 @@ import type {
   ZoomRole,
 } from "@/types/breakout";
 
+import RoundPages from "../RoundPages";
 import SaveTemplateModal from "../SaveTemplateModal";
 import ZoomActionOverlay from "../ZoomActionOverlay";
 import { Button, Card, ConfirmModal, EditableName, SectionLabel } from "../ui";
@@ -29,7 +29,7 @@ const DURATION_STEP_SEC = 30;
 const MIN_DURATION_SEC = 30;
 
 /** How rounds get their groups. Stored as the workspace's two existing flags. */
-type Grouping = "same" | "new" | "each";
+export type Grouping = "same" | "new" | "each";
 
 /** The workflow page's bulk edits; one runs at a time, only its button spins, and the others ignore clicks without fading. */
 type BulkAction = "rooms" | "assign";
@@ -38,7 +38,7 @@ type BulkAction = "rooms" | "assign";
 export const GROUPING_OPTIONS: { id: Grouping; label: string; short: string; hint: string }[] = [
   { id: "same", label: "Same groups every round", short: "Same groups", hint: "Set rooms and people once, in Round 1." },
   { id: "new", label: "New groups each round", short: "New each round", hint: "Same rooms, people mixed up each round." },
-  { id: "each", label: "I'll set up each round", short: "Set each round", hint: "Every round has its own rooms and people." },
+  { id: "each", label: "I'll set up each round", short: "Set each round", hint: "Every round has its own rooms and people. Set them up now by clicking the Round card or during the meeting." },
 ];
 
 /** 16px line icons for the grouping cards, drawn in the text colour. */
@@ -66,12 +66,6 @@ export function groupingOf(workspace: Pick<Workspace, "sameRoomsEveryRound" | "s
 }
 
 /** Grow or shrink a draft to exactly `count` rooms. Shrinking unassigns whoever was in the last rooms. */
-function withRoomCount(draft: RoundPlanDraft, count: number): RoundPlanDraft {
-  const rooms = [...draft.rooms];
-  while (rooms.length < count) rooms.push(newRoom(rooms));
-  return { ...draft, rooms: rooms.slice(0, count) };
-}
-
 /** Rounds overview: order, titles and timing. Rooms are planned per round in the editor. */
 export default function RoundsOverview({
   workspace,
@@ -124,7 +118,6 @@ export default function RoundsOverview({
   const [applying, setApplying] = useState<BulkAction | null>(null);
   const grouping = groupingOf(workspace);
   const hintId = useId();
-  const roundListReveal = useScrollReveal();
   // Everyone Zoom still reports in the meeting. The host is never placed in a room.
   const eligibleUUIDs = (live?.participants ?? [])
     .filter((participant) => participant.location !== "left" && participant.role === "attendee")
@@ -237,9 +230,19 @@ export default function RoundsOverview({
   const placed = new Set(nextPlan?.rooms.flatMap((room) => room.participantUUIDs) ?? []);
   const unplaced = eligibleUUIDs.filter((uuid) => !placed.has(uuid)).length;
 
+  /**
+   * "New groups" deals everyone here into the new rooms, as the live page's round
+   * settings do; launch keeps a round's groups, so an added room would stay empty.
+   * "Same groups" keeps the host's groups; Assign evenly is there to mix them.
+   */
   async function setEveryRoundRooms(count: number) {
     setPendingRooms(count);
-    const saved = await applyToAllRounds("rooms", (draft) => withRoomCount(draft, count), null);
+    const resize = (draft: RoundPlanDraft) => withRoomCount(draft, count);
+    const saved = await applyToAllRounds(
+      "rooms",
+      grouping === "new" ? (draft) => shuffleEvenly(resize(draft), eligibleUUIDs) : resize,
+      null,
+    );
     if (!saved) setPendingRooms(null);
   }
 
@@ -277,34 +280,39 @@ export default function RoundsOverview({
       <div className="bw-body bw-workflow">
         <main className="bw-main">
           <p className="bw-round-list__hint">Click a round to edit its rooms and tasks</p>
-          <div className="bw-round-list" {...roundListReveal}>
-            {workspace.rounds.map((round, index) => (
-              <RoundRow
-                key={round.roundId}
-                round={round}
-                position={index + 1}
-                plan={plans[round.roundId] ?? null}
-                groupsFromPrevious={
-                  grouping === "same" && round.roundId !== firstRoundId
-                }
-                onRename={(title) =>
-                  run(() => onUpdateRound(round.roundId, { title }))
-                }
-                onDuration={(durationSec) =>
-                  run(() => onUpdateRound(round.roundId, { durationSec }))
-                }
-                onDelete={() => run(() => onDeleteRound(round.roundId))}
-                onOpen={() => onEditRound(round.roundId)}
-              />
-            ))}
-            <button
-              type="button"
-              className="bw-add-round"
-              onClick={() => void run(onAddRound)}
-            >
-              + Add round
-            </button>
-          </div>
+          <RoundPages
+            className="bw-round-list"
+            items={workspace.rounds.map((round, index) => ({
+              key: round.roundId,
+              node: (
+                <RoundRow
+                  round={round}
+                  position={index + 1}
+                  plan={plans[round.roundId] ?? null}
+                  groupsFromPrevious={
+                    grouping === "same" && round.roundId !== firstRoundId
+                  }
+                  onRename={(title) =>
+                    run(() => onUpdateRound(round.roundId, { title }))
+                  }
+                  onDuration={(durationSec) =>
+                    run(() => onUpdateRound(round.roundId, { durationSec }))
+                  }
+                  onDelete={() => run(() => onDeleteRound(round.roundId))}
+                  onOpen={() => onEditRound(round.roundId)}
+                />
+              ),
+            }))}
+            footer={
+              <button
+                type="button"
+                className="bw-add-round"
+                onClick={() => void run(onAddRound)}
+              >
+                + Add round
+              </button>
+            }
+          />
         </main>
 
         <aside className="bw-rail bw-workflow__settings">

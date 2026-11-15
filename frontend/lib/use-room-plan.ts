@@ -60,6 +60,13 @@ export function newRoom(rooms: PlannedRoom[]): PlannedRoom {
   };
 }
 
+/** The draft with exactly `count` rooms: new ones added at the end, extra ones removed from the end with their people. */
+export function withRoomCount<T extends { rooms: PlannedRoom[] }>(draft: T, count: number): T {
+  const rooms = [...draft.rooms];
+  while (rooms.length < count) rooms.push(newRoom(rooms));
+  return { ...draft, rooms: rooms.slice(0, count) };
+}
+
 function fingerprint(draft: RoundPlanDraft): string {
   return JSON.stringify(draft);
 }

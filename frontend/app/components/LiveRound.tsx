@@ -81,6 +81,7 @@ export default function LiveRound({
   onEndRound,
   onLaunchNext,
   onLaunchNextWithRooms,
+  onRoomCount,
   onEndWorkflow,
   onPlace,
   onMove,
@@ -104,6 +105,8 @@ export default function LiveRound({
   onLaunchNext: () => void;
   /** Gives the next round `count` rooms with everyone placed evenly, then launches it. */
   onLaunchNextWithRooms: (count: number) => Promise<void>;
+  /** Round settings: an upcoming round's room count (and the later ones' in "New groups"). Reports its own errors. */
+  onRoomCount: (roundId: string, count: number) => Promise<boolean>;
   /** Offered once every round has run. Reports its own errors. */
   onEndWorkflow: () => Promise<void>;
   /** Saves the round with people added to rooms and moves them in Zoom. Reports its own errors. */
@@ -396,6 +399,8 @@ export default function LiveRound({
             onUpdateRound={onUpdateRound}
             onDeleteRound={onDeleteRound}
             onSkipRound={onSkipRound}
+            onRoomCount={onRoomCount}
+            zoomBusy={busy}
             challenges={
               open || challenges.latest ? (
                 <ChallengeCards

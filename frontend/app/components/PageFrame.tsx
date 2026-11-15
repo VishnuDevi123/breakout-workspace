@@ -17,6 +17,7 @@ export interface FrameTab<T extends string> {
 export default function PageFrame<T extends string>({
   tone = "live",
   bar,
+  toolbar,
   tabs = [],
   activeTab,
   onTabChange,
@@ -33,6 +34,8 @@ export default function PageFrame<T extends string>({
   tone?: "live" | "planning" | "participant";
   /** Contents of the top bar, left to right. */
   bar: ReactNode;
+  /** A second fixed row under the bar, e.g. the room controls while setting up a round. */
+  toolbar?: ReactNode;
   /** No tabs, no navbar: the page takes the space. */
   tabs?: FrameTab<T>[];
   activeTab?: T;
@@ -48,8 +51,12 @@ export default function PageFrame<T extends string>({
   children: ReactNode;
 }) {
   return (
-    <div className={`bw-frame bw-frame--${tone}${tabs.length > 0 ? "" : " bw-frame--no-nav"}`} style={style}>
+    <div
+      className={`bw-frame bw-frame--${tone}${tabs.length > 0 ? "" : " bw-frame--no-nav"}${toolbar ? " bw-frame--toolbar" : ""}`}
+      style={style}
+    >
       <header className="bw-frame__bar">{bar}</header>
+      {toolbar ? <div className="bw-frame__toolbar">{toolbar}</div> : null}
 
       <div className="bw-frame__main">
         <main className="bw-frame__page">

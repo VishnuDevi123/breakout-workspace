@@ -81,7 +81,7 @@ export default function ChallengeOverlay({
                 {isQuiz ? ` · ${challenge.title}` : ""}
               </span>
               {challenge.revealed ? null : <TimeLeft endsAt={challenge.endsAt} />}
-              <button className="bw-back-button" aria-label="Back to the room" title="Back to the room" onClick={close}>
+              <button className="bw-back-button bw-close" aria-label="Back to the room" title="Back to the room" onClick={close}>
                 ✕
               </button>
             </header>

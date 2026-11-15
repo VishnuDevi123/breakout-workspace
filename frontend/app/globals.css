@@ -68,16 +68,21 @@
   --bw-wrong-deep: #8f2a2a;
   /* Poll and quiz colour coding: a light tint, its line and its text colour. */
   /* Layers from light to strong: field (inputs, rows), tint (modal), card (question cards), fill (result bars). */
-  --bw-poll-field: #fafcff;
-  --bw-poll-tint: #eef6fd;
-  --bw-poll-card: #e2eefb;
-  --bw-poll-line: #c9def4;
+  --bw-poll-field: #fcfdff;
+  --bw-poll-tint: #f4f9ff;
+  --bw-poll-card: #e9f2fc;
+  --bw-poll-line: #d5e5f6;
+  --bw-poll-letter: #2563eb;
   --bw-poll-fill: #d3e5f9;
   --bw-poll-deep: #1f5f96;
   --bw-quiz-field: #fffbf7;
-  --bw-quiz-tint: #fff4eb;
-  --bw-quiz-card: #ffeadb;
-  --bw-quiz-line: #f5d6bb;
+  --bw-quiz-tint: #fff6ee;
+  --bw-quiz-card: #ffeedd;
+  --bw-quiz-line: #fbd9bb;
+  --bw-quiz-letter: #c2410c;
+  /* Poll and quiz editor: labels, and the quiz's right answer. */
+  --bw-challenge-label: #6b7280;
+  --bw-challenge-right: #16a34a;
   --bw-quiz-fill: #fcdcc2;
   --bw-quiz-deep: #9a4a12;
 
@@ -544,10 +549,10 @@ input[type="checkbox"] {
   gap: 13px;
 }
 
-/* Cards are at least 228px wide; the column count follows the space. */
+/* Cards are at least 220px wide; the column count follows the space. */
 .bw-room-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -680,7 +685,8 @@ input[type="checkbox"] {
 }
 
 /* WebKit repaints a custom scrollbar only when the element's own style changes. */
-.bw-library-list[data-scrolling] {
+.bw-library-list[data-scrolling],
+.bw-goal-input--area[data-scrolling] {
   --bw-scrollbar-repaint: 1;
 }
 
@@ -997,6 +1003,12 @@ input[type="checkbox"] {
 
 .bw-ai-panel__back,
 .bw-ai-panel__close {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: none;
   font: inherit;
@@ -1399,6 +1411,137 @@ input[type="checkbox"] {
 .bw-add-round:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/*
+ * Round cards in pages of four (RoundPages). A wide layout shows every card and
+ * no pager; the narrow layouts below (workflow page, session page) turn paging on.
+ */
+.bw-round-pages__item {
+  display: contents;
+}
+.bw-pager {
+  display: none;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.bw-pager__button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-surface);
+  color: var(--bw-ink);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.bw-pager__button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bw-pager__button:hover:not(:disabled) {
+  border-color: var(--bw-border-strong);
+  background: var(--bw-surface-sunken);
+}
+.bw-pager__button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.bw-pager__count {
+  min-width: 4ch;
+  text-align: center;
+  font-size: var(--bw-fs-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--bw-muted);
+}
+@keyframes bwRoundsNext {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+@keyframes bwRoundsBack {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+@media (max-width: 639px) {
+  .bw-workflow .bw-round-pages__item[data-off] {
+    display: none;
+  }
+  .bw-workflow .bw-pager {
+    display: flex;
+  }
+  .bw-workflow .bw-round-pages > .bw-add-round {
+    grid-column: 1 / -1;
+  }
+  /* Two rows kept on every page, so the pager never moves; rows share one height. */
+  .bw-workflow .bw-round-pages[data-paged] {
+    grid-template-rows: repeat(2, 1fr);
+  }
+  /* Under the pager, even on a last page with one card. */
+  .bw-workflow .bw-round-pages[data-paged] > .bw-pager {
+    grid-row: 3;
+  }
+  .bw-workflow .bw-round-pages[data-paged] > .bw-add-round {
+    grid-row: 4;
+  }
+  .bw-workflow .bw-round-pages__item > * {
+    animation: bwRoundsNext 200ms ease-out;
+  }
+  .bw-workflow .bw-round-pages[data-direction="back"] .bw-round-pages__item > * {
+    animation-name: bwRoundsBack;
+  }
+}
+@container frame-page (max-width: 719px) {
+  .bw-session .bw-round-pages__item[data-off] {
+    display: none;
+  }
+  .bw-session .bw-pager {
+    display: flex;
+  }
+  .bw-session .bw-round-pages > .bw-session-rounds__add {
+    grid-column: 1 / -1;
+  }
+  .bw-session .bw-round-pages[data-paged] {
+    grid-template-rows: repeat(2, 1fr);
+  }
+  .bw-session .bw-round-pages[data-paged] > .bw-pager {
+    grid-row: 3;
+  }
+  .bw-session .bw-round-pages[data-paged] > .bw-session-rounds__add {
+    grid-row: 4;
+  }
+  .bw-session .bw-round-pages__item > * {
+    animation: bwRoundsNext 200ms ease-out;
+  }
+  .bw-session .bw-round-pages[data-direction="back"] .bw-round-pages__item > * {
+    animation-name: bwRoundsBack;
+  }
+}
+/* Reduced motion: the same names, fading only. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes bwRoundsNext {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwRoundsBack {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 .bw-switch-row {
@@ -1920,7 +2063,7 @@ input[type="checkbox"] {
   height: var(--bw-expanding-closed);
   overflow: hidden;
   resize: none;
-  transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: height 300ms cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
@@ -1931,8 +2074,18 @@ input[type="checkbox"] {
   -webkit-mask-image: none;
   mask-image: none;
 }
-.bw-goal-input.bw-expanding {
-  --bw-expanding-closed: calc(1lh + 24px);
+/* The task goal as a fixed-height box (rows set by the page); longer goals scroll inside. */
+.bw-goal-input--area {
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow-y: auto;
+  transition: border-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+.bw-goal-input.bw-goal-input--area:focus-visible {
+  outline: none;
+  border-color: var(--bw-accent);
+  box-shadow: 0 0 0 1px var(--bw-accent);
 }
 .bw-line-row__input.bw-expanding {
   --bw-expanding-closed: calc(1lh + 10px);
@@ -2181,6 +2334,7 @@ a.bw-resource-row:hover {
 
 /* ── Task summary in the live rail ─────────────────────────────────── */
 .bw-task-summary {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -2199,7 +2353,14 @@ a.bw-resource-row:hover {
   cursor: default;
   opacity: 0.6;
 }
+/* Three lines at most, then "…"; long unbroken words wrap instead of leaving the card. */
 .bw-task-summary__goal {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: var(--bw-fs-body);
   font-weight: 500;
   line-height: 1.4;
@@ -2302,58 +2463,62 @@ a.bw-resource-row:hover {
   font-size: var(--bw-fs-header);
 }
 /*
- * Round setup bar: the name takes the free space but keeps at least 140px; when
- * the controls no longer fit beside it, they wrap as one group to a second row,
- * right-aligned. Labels never break inside a button.
+ * Round setup: two fixed rows at every width. The bar holds back, the name and
+ * Next; the name truncates and Next never wraps or moves. The toolbar under it
+ * holds the room count, how many are placed and Assign evenly.
  */
-.bw-setup-heading {
-  flex: 1 1 140px;
+.bw-frame--planning .bw-frame__bar {
+  flex-wrap: nowrap;
 }
-.bw-setup-actions {
+.bw-setup-heading {
+  flex: 1 1 0;
+}
+.bw-setup-next {
+  flex: none;
+}
+.bw-frame--toolbar {
+  grid-template-rows: minmax(var(--bw-bar-h), auto) auto minmax(0, 1fr) 70px;
+}
+.bw-frame__toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 16px;
+  background: var(--bw-surface);
+  border-bottom: 1px solid var(--bw-border);
+}
+.bw-frame__toolbar .bw-count__value {
+  padding-inline: 4px;
+  white-space: nowrap;
+}
+.bw-setup-placed {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-setup-assign {
+  flex: none;
   margin-left: auto;
 }
-.bw-setup-actions > * {
-  flex: none;
-}
-.bw-setup-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.bw-setup-tools > * {
-  flex: none;
-}
-/*
- * Narrow panel: two rows instead of three. Back, name and Next share the first
- * row; the room controls take the whole second row. The title steps down to
- * 18px and the bar's buttons get tighter padding so the controls fit at 360px.
- */
+/* Narrow panel: the title steps down to 18px and the bar's buttons get tighter padding. */
 @container frame (max-width: 639px) {
   .bw-frame--planning .bw-frame__bar {
     --bw-fs-header: 18px;
     gap: 8px;
   }
-  .bw-frame--planning .bw-frame__bar .bw-button--sm {
+  .bw-frame--planning .bw-button--sm {
     padding: 5px 11px;
   }
-  .bw-setup-heading {
-    flex: 1 1 0;
-  }
-  .bw-setup-actions {
-    display: contents;
-  }
-  .bw-setup-next {
-    order: 1;
-  }
-  .bw-setup-tools {
-    order: 2;
-    flex: 1 1 100%;
+}
+/* Too narrow for the placed count: the stepper and Assign evenly only. */
+@container frame (max-width: 419px) {
+  .bw-setup-placed {
+    display: none;
   }
 }
 .bw-frame__bar .bw-button {
@@ -2432,9 +2597,13 @@ a.bw-resource-row:hover {
 /* Session page: this round on the left, the rounds still to come on the right. */
 .bw-session {
   display: grid;
-  grid-template-columns: minmax(260px, 3fr) minmax(0, 7fr);;
+  grid-template-columns: minmax(260px, 3fr) minmax(0, 7fr);
   gap: 24px;
   align-items: start;
+}
+/* Round setup's Tasks tab: the task column gets a little more room than on the live page. */
+.bw-session--setup {
+  grid-template-columns: minmax(260px, 35fr) minmax(0, 65fr);
 }
 @container frame-page (max-width: 719px) {
   .bw-session {
@@ -2476,6 +2645,59 @@ a.bw-resource-row:hover {
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Session page rounds: stacked beside the task on a wide panel. */
+.bw-session-rounds {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/*
+ * Narrow panel (one column): the rounds four at a time, two by two, with a
+ * pager under them, so the task and polls below stay near the top.
+ */
+@container frame-page (max-width: 719px) {
+  .bw-session-rounds {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .bw-session-rounds .bw-round-card {
+    gap: 8px;
+    padding: 12px;
+  }
+  /* Name on its own line (two at most); the status and time under it. */
+  .bw-session-rounds .bw-round-card__top {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .bw-session-rounds .bw-round-card__title {
+    flex: 1 1 100%;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: var(--bw-fs-body);
+    line-height: 1.35;
+  }
+  .bw-session-rounds .bw-round-card__time {
+    margin-left: auto;
+  }
+  /* Side by side on a wider card; one under the other, full width, on a narrow one. */
+  .bw-session-rounds .bw-round-card__actions {
+    gap: 6px;
+    margin-top: auto;
+  }
+  .bw-session-rounds .bw-round-card__actions .bw-button {
+    flex: 1 1 auto;
+    padding-inline: 8px;
+  }
+  .bw-session-rounds__add {
+    border-style: dashed;
+  }
+}
 .bw-button--danger-text {
   color: var(--bw-danger-text);
 }
@@ -2487,6 +2709,12 @@ a.bw-resource-row:hover {
 }
 .bw-round-settings__rooms {
   font-size: var(--bw-fs-body);
+}
+/* What the room count changes: this round, or this round and the ones after. */
+.bw-round-settings__hint {
+  font-size: var(--bw-fs-meta);
+  line-height: 1.45;
+  color: var(--bw-muted);
 }
 .bw-stepper--inline {
   align-self: flex-start;
@@ -2555,37 +2783,31 @@ a.bw-resource-row:hover {
   .bw-workflow > .bw-rail {
     overflow: visible;
   }
-  /* The rounds get the room; the settings below sit tighter. */
+  /* Tight above and below the rounds, so the settings start high in the window. */
   .bw-workflow > .bw-main {
-    padding: 24px 20px 28px;
+    padding: 14px 20px 12px;
+    gap: 10px;
   }
   .bw-workflow__settings {
-    padding: 10px 16px 0;
+    padding: 8px 16px 0;
     gap: 8px;
   }
   .bw-workflow .bw-choice {
     padding-block: 10px;
   }
-  /* Rounds as one row of narrow cards that scrolls left and right. */
+  /* Rounds four at a time, two by two, with a pager under them. */
   .bw-workflow .bw-round-list {
-    flex-direction: row;
-    flex: 1 1 auto;
-    /* Cards grow with the window, up to a height where they would look empty. */
-    max-height: 230px;
-    margin-top: 16px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    padding-bottom: 4px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 0;
   }
-  .bw-workflow .bw-round-row,
   .bw-workflow .bw-add-round {
-    flex: none;
-    width: 220px;
-    scroll-snap-align: start;
+    padding-block: 10px;
   }
   /* Narrow card: name, summary, then the timer and Remove on one line. */
   .bw-workflow .bw-round-row {
-    padding-block: 17px;
+    padding-block: 14px;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto 1fr;
   }
@@ -2604,8 +2826,14 @@ a.bw-resource-row:hover {
     grid-row: 3;
     align-self: end;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    gap: 4px 8px;
+  }
+  /* Right of the timer; on a card too narrow for both, on its own line under it, still right. */
+  .bw-workflow .bw-round-row__controls > .bw-button {
+    margin-left: auto;
+    white-space: nowrap;
   }
   /* The buttons stay at the bottom of the window; the page scrolls under them. */
   .bw-workflow .bw-workflow__actions {
@@ -2626,12 +2854,11 @@ a.bw-resource-row:hover {
     min-width: 0;
   }
 }
-/* Every round: one list of two rows, the name and a status line on the left,
-   the control on the right. The same at every width. */
+/* Every round: two separate cards, spaced like the grouping cards, each with the
+   name and a status line on the left and the control on the right. */
 .bw-every-round {
-  border: 1px solid var(--bw-border);
-  border-radius: var(--bw-radius-md);
-  background: var(--bw-surface);
+  display: grid;
+  gap: 8px;
 }
 .bw-every-round__row {
   display: flex;
@@ -2639,9 +2866,9 @@ a.bw-resource-row:hover {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
-}
-.bw-every-round__row + .bw-every-round__row {
-  border-top: 1px solid var(--bw-border);
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-md);
+  background: var(--bw-surface);
 }
 .bw-every-round__text {
   display: flex;
@@ -3725,43 +3952,32 @@ a.bw-resource-row:hover {
 }
 /* The scrollbar keeps its space but shows only while the body scrolls (useScrollReveal). */
 .bw-challenge-scroll,
-.bw-expanding {
+.bw-expanding,
+.bw-goal-input--area {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 .bw-challenge-scroll[data-scrolling],
-.bw-expanding[data-scrolling] {
+.bw-expanding[data-scrolling],
+.bw-goal-input--area[data-scrolling] {
   scrollbar-color: var(--bw-border-strong) transparent;
 }
 .bw-challenge-scroll::-webkit-scrollbar,
 .bw-expanding::-webkit-scrollbar,
+.bw-goal-input--area::-webkit-scrollbar,
 .bw-library-list::-webkit-scrollbar {
   width: 6px;
 }
-/* Narrow workflow page: the sideways round row shows its bar on hover or while it scrolls. */
-.bw-round-list::-webkit-scrollbar {
-  height: 6px;
-}
-.bw-round-list::-webkit-scrollbar-thumb {
-  border-radius: 3px;
-  background: transparent;
-}
-.bw-round-list:hover,
-.bw-round-list[data-scrolling] {
-  --bw-scrollbar-repaint: 1;
-}
-.bw-round-list:hover::-webkit-scrollbar-thumb,
-.bw-round-list[data-scrolling]::-webkit-scrollbar-thumb {
-  background: var(--bw-border-strong);
-}
 .bw-challenge-scroll::-webkit-scrollbar-thumb,
 .bw-expanding::-webkit-scrollbar-thumb,
+.bw-goal-input--area::-webkit-scrollbar-thumb,
 .bw-library-list::-webkit-scrollbar-thumb {
   border-radius: 3px;
   background: transparent;
 }
 .bw-challenge-scroll[data-scrolling]::-webkit-scrollbar-thumb,
 .bw-expanding[data-scrolling]::-webkit-scrollbar-thumb,
+.bw-goal-input--area[data-scrolling]::-webkit-scrollbar-thumb,
 .bw-library-list[data-scrolling]::-webkit-scrollbar-thumb {
   background: var(--bw-border-strong);
 }
@@ -3885,6 +4101,7 @@ a.bw-resource-row:hover {
   --bw-kind-line: var(--bw-poll-line);
   --bw-kind-fill: var(--bw-poll-fill);
   --bw-kind-deep: var(--bw-poll-deep);
+  --bw-kind-letter: var(--bw-poll-letter);
 }
 .bw-challenge-panel--quiz {
   --bw-kind-field: var(--bw-quiz-field);
@@ -3893,6 +4110,7 @@ a.bw-resource-row:hover {
   --bw-kind-line: var(--bw-quiz-line);
   --bw-kind-fill: var(--bw-quiz-fill);
   --bw-kind-deep: var(--bw-quiz-deep);
+  --bw-kind-letter: var(--bw-quiz-letter);
 }
 .bw-overlay__panel.bw-challenge-panel {
   background: var(--bw-kind-tint);
@@ -3903,35 +4121,18 @@ a.bw-resource-row:hover {
   border-color: var(--bw-kind-line);
 }
 .bw-challenge-panel .bw-challenge-option,
-.bw-challenge-panel .bw-challenge-question__text {
+.bw-challenge-panel .bw-challenge-field {
   background: var(--bw-kind-field);
   border-color: var(--bw-kind-line);
-}
-.bw-challenge-panel .bw-challenge-question__text {
-  border-color: color-mix(in srgb, var(--bw-kind-deep) 35%, transparent);
-}
-.bw-challenge-panel .bw-challenge-option[data-right] {
-  border-color: var(--bw-green);
-  background: var(--bw-green-tint);
 }
 .bw-challenge-panel .bw-challenge-option:focus-within {
   border-color: var(--bw-accent);
 }
 .bw-challenge-panel .bw-challenge-option__mark {
   border-color: var(--bw-kind-line);
-  background: var(--bw-kind-tint);
-  color: var(--bw-kind-deep);
-}
-.bw-challenge-panel button.bw-challenge-option__mark {
-  border-color: color-mix(in srgb, var(--bw-kind-deep) 45%, transparent);
   background: var(--bw-surface);
+  color: var(--bw-kind-letter);
 }
-.bw-challenge-panel .bw-challenge-editor__name {
-  border-bottom-color: color-mix(in srgb, var(--bw-kind-deep) 35%, transparent);
-}
-.bw-challenge-panel .bw-challenge-question__number,
-.bw-challenge-panel .bw-challenge-editor__hint,
-.bw-challenge-panel .bw-time-choices__label,
 .bw-challenge-panel .bw-challenge-bar__status,
 .bw-challenge-panel .bw-challenge-bar__clock,
 .bw-challenge-panel .bw-section-label {
@@ -3948,31 +4149,38 @@ a.bw-resource-row:hover {
 .bw-challenge-panel .bw-leaderboard__row {
   border-bottom-color: var(--bw-kind-line);
 }
-/* Editor: the quiz title as a plain heading field, then one card per question. */
+/* Editor: a quiz's title as a heading on an underline, then one card per question. */
 .bw-challenge-editor__intro {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 .bw-challenge-editor__name {
   width: 100%;
-  padding: 4px 0;
+  padding: 4px 2px 6px;
   border: 0;
-  border-bottom: 1px solid var(--bw-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--bw-kind-deep) 35%, transparent);
+  border-radius: 0;
   background: none;
   font: inherit;
   font-size: var(--bw-fs-header);
   font-weight: 600;
+  line-height: 1.3;
   color: var(--bw-ink);
   transition: border-color 150ms ease-out;
+}
+.bw-challenge-editor__name::placeholder {
+  font-weight: 400;
+  color: var(--bw-muted-4);
 }
 .bw-challenge-editor__name:focus-visible {
   outline: none;
   border-bottom-color: var(--bw-accent);
 }
 .bw-challenge-editor__hint {
+  padding-inline: 2px;
   font-size: var(--bw-fs-meta);
-  color: var(--bw-muted);
+  color: var(--bw-challenge-label);
 }
 .bw-challenge-question {
   scroll-margin-top: 12px;
@@ -3992,9 +4200,19 @@ a.bw-resource-row:hover {
 }
 .bw-challenge-question__number {
   font-size: var(--bw-fs-meta);
-  color: var(--bw-muted);
+  font-weight: 600;
+  color: var(--bw-challenge-label);
 }
-.bw-challenge-question__text {
+.bw-challenge-question__remove {
+  color: var(--bw-danger-text);
+  font-size: var(--bw-fs-body);
+}
+.bw-challenge-question__remove:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* The boxed field: a question's text, and a quiz's title. */
+.bw-challenge-field {
   padding: 10px 12px;
   border: 1px solid var(--bw-border-strong);
   border-radius: var(--bw-radius-md);
@@ -4006,7 +4224,7 @@ a.bw-resource-row:hover {
   color: var(--bw-ink);
   transition: none;
 }
-.bw-challenge-question__text:focus-visible {
+.bw-challenge-field:focus-visible {
   outline: 2px solid var(--bw-accent);
   outline-offset: 1px;
 }
@@ -4031,9 +4249,17 @@ a.bw-resource-row:hover {
   border-color: var(--bw-accent);
   box-shadow: 0 0 0 1px var(--bw-accent);
 }
-.bw-challenge-option[data-right] {
-  border-color: var(--bw-green);
-  background: var(--bw-green-tint);
+/* A whole-pixel 2px edge: browsers round a 1.5px border down to 1px, and a
+   half-pixel shadow draws unevenly. Padding drops 1px so the row keeps its size. */
+.bw-challenge-panel .bw-challenge-option[data-right] {
+  padding: 6px 7px;
+  border-width: 2px;
+  border-color: var(--bw-challenge-right);
+  background: var(--bw-surface);
+}
+/* Typing in the right answer keeps its green edge; no accent ring over it. */
+.bw-challenge-panel .bw-challenge-option[data-right]:focus-within {
+  box-shadow: none;
 }
 .bw-challenge-option > .bw-icon-button {
   margin-top: 2px;
@@ -4059,16 +4285,23 @@ button.bw-challenge-option__mark {
   background: var(--bw-surface);
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
-button.bw-challenge-option__mark:hover:not([aria-checked="true"]) {
-  border-color: var(--bw-green);
-  color: var(--bw-green-deep);
+.bw-challenge-panel button.bw-challenge-option__mark:hover:not([aria-checked="true"]) {
+  border-color: var(--bw-challenge-right);
+  color: var(--bw-challenge-right);
 }
-button.bw-challenge-option__mark[aria-checked="true"] {
-  background: var(--bw-green-deep);
-  border-color: var(--bw-green-deep);
+.bw-challenge-panel button.bw-challenge-option__mark[aria-checked="true"] {
+  background: var(--bw-challenge-right);
+  border-color: var(--bw-challenge-right);
   color: #fff;
-  font-family: var(--bw-font-ui);
-  font-size: var(--bw-fs-body);
+}
+.bw-challenge-option__mark svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .bw-challenge-option__body {
   flex: 1;
@@ -4121,35 +4354,40 @@ button.bw-challenge-option__mark[aria-checked="true"] {
   background: var(--bw-accent-tint);
   color: var(--bw-accent-deep);
 }
-.bw-time-choices {
+/* Time to answer: a black label and the − / time / + stepper. */
+.bw-answer-time {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
-.bw-time-choices__label {
-  margin-right: 4px;
-  font-size: var(--bw-fs-meta);
-  color: var(--bw-muted);
-}
-.bw-time-choice {
-  padding: 5px 12px;
-  border: 1px solid var(--bw-border-strong);
-  border-radius: var(--bw-radius-pill);
-  background: var(--bw-surface);
-  font-family: var(--bw-font-mono);
-  font-size: var(--bw-fs-button-sm);
+.bw-answer-time__label {
+  font-size: var(--bw-fs-body);
   color: var(--bw-ink);
-  cursor: pointer;
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
-.bw-time-choice:hover:not([aria-checked="true"]) {
-  border-color: var(--bw-accent);
+.bw-answer-time__stepper {
+  background: var(--bw-surface);
+  border-color: var(--bw-kind-line, var(--bw-border-soft));
 }
-.bw-time-choice[aria-checked="true"] {
-  background: var(--bw-accent);
-  border-color: var(--bw-accent);
-  color: #fff;
+/* The time is a button until tapped, then a field of the same size. */
+.bw-answer-time__stepper .bw-answer-time__value {
+  width: 5ch;
+  height: auto;
+  padding: 2px 0;
+  border: 0;
+  border-radius: var(--bw-radius-sm);
+  background: none;
+  font-size: var(--bw-fs-section);
+  font-weight: 600;
+  text-align: center;
+  color: var(--bw-ink);
+}
+.bw-answer-time__stepper .bw-answer-time__value:hover,
+.bw-answer-time__stepper .bw-answer-time__input {
+  background: var(--bw-surface-muted);
+}
+.bw-answer-time__input:focus-visible {
+  outline: 2px solid var(--bw-accent);
+  outline-offset: 0;
 }
 /* Results: the title leads, as the question does on the room's card. */
 .bw-challenge-results__title {
@@ -4983,4 +5221,18 @@ button.bw-challenge-option__mark[aria-checked="true"] {
   .bw-connection--shown {
     transform: translate(-50%, 0);
   }
+}
+
+/* Every ✕ (close or remove): a red circle with a white ✕ under the cursor or
+   keyboard focus. Last in the file, and the button tag, so it beats each
+   button's own hover. */
+.bw-close {
+  border-radius: var(--bw-radius-pill);
+  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+}
+button.bw-close:hover:not(:disabled),
+button.bw-close:focus-visible {
+  border-color: var(--bw-danger-text);
+  background: var(--bw-danger-text);
+  color: #fff;
 }

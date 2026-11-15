@@ -44,7 +44,7 @@ export default function ConfirmModal({
           <div className="bw-overlay__body">
             <div className="bw-confirm-head">
               <span className="bw-modal-title">{title}</span>
-              <button type="button" className="bw-back-button" aria-label="Close" title="Close" disabled={busy} onClick={close}>
+              <button type="button" className="bw-back-button bw-close" aria-label="Close" title="Close" disabled={busy} onClick={close}>
                 ✕
               </button>
             </div>

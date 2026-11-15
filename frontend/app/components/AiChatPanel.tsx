@@ -84,7 +84,7 @@ export default function AiChatPanel({
           <Button variant="ghost" size="sm" disabled={pending} onClick={onNewChat}>
             New chat
           </Button>
-          <button type="button" className="bw-ai-panel__close" aria-label="Close" onClick={onClose}>
+          <button type="button" className="bw-ai-panel__close bw-close" aria-label="Close" onClick={onClose}>
             ×
           </button>
         </header>

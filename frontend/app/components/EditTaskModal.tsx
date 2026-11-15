@@ -41,7 +41,7 @@ export default function EditTaskModal({
               <span className="bw-modal-title">Task - {roundTitle}</span>
             </div>
             <div className="bw-header-spacer" />
-            <Button variant="secondary" size="sm" onClick={close}>
+            <Button size="sm" onClick={close}>
               Done
             </Button>
           </header>
@@ -50,7 +50,7 @@ export default function EditTaskModal({
             {state === "loading" ? (
               <span style={{ fontSize: "var(--bw-fs-meta)", color: "var(--bw-muted-2)" }}>Loading the task…</span>
             ) : (
-              <TaskFields task={task} setTask={setTask} save={(next) => void save(next)} />
+              <TaskFields task={task} setTask={setTask} save={(next) => void save(next)} goalRows={4} />
             )}
           </div>
         </>

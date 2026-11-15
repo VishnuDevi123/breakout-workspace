@@ -57,7 +57,7 @@ export default function ChallengeResultsModal({
                 Reveal now
               </Button>
             )}
-            <button className="bw-back-button" aria-label="Close" title="Close" onClick={close}>
+            <button className="bw-back-button bw-close" aria-label="Close" title="Close" onClick={close}>
               ✕
             </button>
           </header>

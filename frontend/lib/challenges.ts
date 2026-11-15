@@ -15,11 +15,21 @@ import type {
 
 export type ChallengeKind = ChallengeDraft["kind"];
 
-/** Label and the time choices for each kind. The first time is the default. */
-export const CHALLENGE_KINDS: Record<ChallengeKind, { label: string; durations: number[] }> = {
-  poll: { label: "Poll", durations: [60, 30, 120] },
-  quiz: { label: "Quiz", durations: [120, 60, 180, 300] },
+/** Label and the starting time to answer for each kind. */
+export const CHALLENGE_KINDS: Record<ChallengeKind, { label: string; defaultSec: number }> = {
+  poll: { label: "Poll", defaultSec: 60 },
+  quiz: { label: "Quiz", defaultSec: 120 },
 };
+
+/** Time to answer: the stepper moves in 15 second steps between 0:15 and 10:00. */
+export const ANSWER_STEP_SEC = 15;
+export const MIN_ANSWER_SEC = 15;
+export const MAX_ANSWER_SEC = 600;
+
+/** Keeps a time to answer inside the stepper's range. */
+export function clampAnswerSec(seconds: number): number {
+  return Math.min(MAX_ANSWER_SEC, Math.max(MIN_ANSWER_SEC, Math.round(seconds)));
+}
 
 /** Store limits, copied from backend/store/challenges.ts. */
 export const MAX_TITLE_LENGTH = 100;
@@ -29,7 +39,7 @@ export const MAX_OPTION_LENGTH = 120;
 const EMPTY_QUESTION: ChallengeQuestion = { text: "", options: ["", ""] };
 
 export function emptyDraft(kind: ChallengeKind): ChallengeDraft {
-  const fields = { title: "", questions: [EMPTY_QUESTION], durationSec: CHALLENGE_KINDS[kind].durations[0] };
+  const fields = { title: "", questions: [EMPTY_QUESTION], durationSec: CHALLENGE_KINDS[kind].defaultSec };
   return kind === "poll" ? { kind, ...fields } : { kind, ...fields, answerKey: [0] };
 }
 

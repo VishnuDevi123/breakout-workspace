@@ -100,17 +100,9 @@ export default function RoundSetup({
         <EditableName value={title} placeholder={placeholder} className="bw-setup-title" onSave={onRename} />
         <span className="bw-header-subtitle">{subtitle}</span>
       </div>
-      {/* One group beside the name; on a narrow panel Next stays by the name and the room controls take their own row. */}
-      <div className="bw-setup-actions">
-        {tab === "rooms" ? (
-          <div className="bw-setup-tools">
-            <RoomControls plan={plan} round={round} roster={roster} rosterKnown={rosterKnown} onRemoveRoom={askToRemoveRoom} />
-          </div>
-        ) : null}
-        <Button size="sm" className="bw-setup-next" onClick={() => void leave(onNext)}>
-          {nextLabel}
-        </Button>
-      </div>
+      <Button size="sm" className="bw-setup-next" onClick={() => void leave(onNext)}>
+        {nextLabel}
+      </Button>
     </>
   );
 
@@ -118,6 +110,11 @@ export default function RoundSetup({
     <PageFrame
       tone="planning"
       bar={bar}
+      toolbar={
+        tab === "rooms" ? (
+          <RoomToolbar plan={plan} round={round} roster={roster} rosterKnown={rosterKnown} onRemoveRoom={askToRemoveRoom} />
+        ) : null
+      }
       tabs={tabs}
       activeTab={tab}
       onTabChange={onTabChange}
@@ -131,9 +128,9 @@ export default function RoundSetup({
           <RoomGrid plan={plan} round={round} roster={roster} rosterKnown={rosterKnown} onRemoveRoom={askToRemoveRoom} />
         </div>
       ) : (
-        <div className="bw-session">
+        <div className="bw-session bw-session--setup">
           <section className="bw-session__column">
-            <TaskFields task={tasks.task} setTask={tasks.setTask} save={(next) => void tasks.save(next)} />
+            <TaskFields task={tasks.task} setTask={tasks.setTask} save={(next) => void tasks.save(next)} goalRows={5} />
           </section>
           <section className="bw-session__column">
             <ActivityList activities={tasks.activities} live={false} onSave={tasks.saveActivities} />
@@ -215,7 +212,8 @@ function placeable(roster: Participant[]): Participant[] {
   return roster.filter((person) => person.assignmentEligible && person.role === "attendee");
 }
 
-function RoomControls({
+/** The second row on the Rooms tab: room count, how many are placed, Assign evenly. */
+function RoomToolbar({
   plan,
   round,
   roster,
@@ -230,11 +228,13 @@ function RoomControls({
 }) {
   const lastRoom = round.rooms.at(-1);
   const people = placeable(roster);
+  const placed = new Set([...round.rooms.flatMap((room) => room.participantUUIDs), ...round.stayInMainParticipantUUIDs]);
+  const placedCount = people.filter((person) => placed.has(person.participantUUID)).length;
   const blocked = !rosterKnown ? "Waiting for the live roster." : people.length === 0 ? "Nobody to place yet." : undefined;
 
   return (
     <>
-      <div className="bw-stepper">
+      <div className="bw-count">
         <button
           type="button"
           aria-label={lastRoom ? `Remove ${lastRoom.name}` : "Remove room"}
@@ -243,16 +243,20 @@ function RoomControls({
         >
           −
         </button>
-        <span className="bw-room-count">
+        <span className="bw-count__value">
           {round.rooms.length} {round.rooms.length === 1 ? "room" : "rooms"}
         </span>
         <button type="button" aria-label="Add room" disabled={!plan.canAdd} onClick={plan.addRoom}>
           +
         </button>
       </div>
+      <span className="bw-setup-placed">
+        {rosterKnown ? `${placedCount} of ${people.length} ${people.length === 1 ? "person" : "people"} placed` : null}
+      </span>
       <Button
         variant="secondary"
         size="sm"
+        className="bw-setup-assign"
         disabled={Boolean(blocked)}
         title={blocked}
         onClick={() => plan.autoAssignParticipants(people.map((person) => person.participantUUID))}

@@ -8,6 +8,13 @@ export function formatClock(totalSec: number): string {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
 }
 
+/** Seconds from typed "m:ss" or plain minutes ("2" is 2:00); null when it is neither. */
+export function parseClock(text: string): number | null {
+  const match = /^\s*(\d{1,3})(?::([0-5]?\d))?\s*$/.exec(text);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2] ?? 0);
+}
+
 /**
  * Seconds left on the round, recomputed every second from the server's endsAt.
  * Null when endsAt is 0, which means the round runs until the host closes it.

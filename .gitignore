@@ -49,3 +49,6 @@ recordings/
 /frontend/tests
 
 urls.txt
+
+# Marketplace submission notes (local only)
+marketplace-submission.md

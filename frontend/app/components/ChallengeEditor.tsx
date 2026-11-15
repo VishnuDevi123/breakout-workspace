@@ -4,18 +4,22 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   addQuestion,
+  ANSWER_STEP_SEC,
   CHALLENGE_KINDS,
+  clampAnswerSec,
   draftProblem,
   launchableDraft,
   MAX_OPTION_LENGTH,
   MAX_QUESTION_LENGTH,
+  MAX_ANSWER_SEC,
   MAX_TITLE_LENGTH,
+  MIN_ANSWER_SEC,
   optionLetter,
   removeOption,
   removeQuestion,
   setQuestion,
 } from "@/lib/challenges";
-import { formatClock } from "@/lib/round-clock";
+import { formatClock, parseClock } from "@/lib/round-clock";
 import { MAX_CHALLENGE_OPTIONS, MAX_QUIZ_QUESTIONS, type ChallengeDraft, type ChallengeQuestion } from "@/types/breakout";
 
 import ChallengeScrollBody from "./ChallengeScrollBody";
@@ -82,7 +86,7 @@ export default function ChallengeEditor({
           <header className="bw-overlay__header bw-challenge-bar">
             <span className="bw-challenge-editor__title">New {kind.label.toLowerCase()}</span>
             <div className="bw-header-spacer" />
-            <button className="bw-back-button" aria-label="Close" title="Close" onClick={close}>
+            <button className="bw-back-button bw-close" aria-label="Close" title="Close" onClick={close}>
               ✕
             </button>
           </header>
@@ -131,19 +135,15 @@ export default function ChallengeEditor({
           </ChallengeScrollBody>
 
           <footer className="bw-challenge-actionbar">
-            <div className="bw-time-choices" role="radiogroup" aria-label="Time to answer">
-              <span className="bw-time-choices__label">Time to answer</span>
-              {kind.durations.toSorted((a, b) => a - b).map((seconds) => (
-                <button
-                  key={seconds}
-                  className="bw-time-choice"
-                  role="radio"
-                  aria-checked={draft.durationSec === seconds}
-                  onClick={() => onChange({ ...draft, durationSec: seconds })}
-                >
-                  {formatClock(seconds)}
-                </button>
-              ))}
+            <div className="bw-answer-time">
+              <span className="bw-answer-time__label" id="bw-answer-time-label">
+                Time to answer
+              </span>
+              <AnswerTime
+                seconds={draft.durationSec}
+                labelledBy="bw-answer-time-label"
+                onChange={(durationSec) => onChange({ ...draft, durationSec })}
+              />
             </div>
             {/* What is missing shows as the button's tooltip; nothing repeats it here. */}
             <Button
@@ -188,20 +188,19 @@ function QuestionCard({
       {isQuiz ? (
         <div className="bw-challenge-question__head">
           <span className="bw-challenge-question__number">Question {index + 1}</span>
-          {draft.questions.length > 1 ? (
-            <button
-              className="bw-icon-button"
-              aria-label={`Remove question ${index + 1}`}
-              title="Remove question"
-              onClick={() => onChange(removeQuestion(draft, index))}
-            >
-              ✕
-            </button>
-          ) : null}
+          <button
+            className="bw-icon-button bw-close bw-challenge-question__remove"
+            aria-label={`Remove question ${index + 1}`}
+            title={draft.questions.length > 1 ? "Remove question" : "A quiz needs at least one question"}
+            disabled={draft.questions.length <= 1}
+            onClick={() => onChange(removeQuestion(draft, index))}
+          >
+            ✕
+          </button>
         </div>
       ) : null}
       <ExpandingField
-        className="bw-challenge-question__text"
+        className="bw-challenge-field"
         value={question.text}
         autoFocus={!isQuiz}
         collapseOnBlur={false}
@@ -228,7 +227,13 @@ function QuestionCard({
                     onChange({ ...draft, answerKey: draft.answerKey.map((key, at) => (at === index ? optionIndex : key)) })
                   }
                 >
-                  {isRight ? "✓" : letter}
+                  {isRight ? (
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M4 8.5l2.5 2.5L12 5.5" />
+                    </svg>
+                  ) : (
+                    letter
+                  )}
                 </button>
               ) : (
                 <span className="bw-challenge-option__mark">{letter}</span>
@@ -246,7 +251,7 @@ function QuestionCard({
               </div>
               {question.options.length > 2 ? (
                 <button
-                  className="bw-icon-button"
+                  className="bw-icon-button bw-close"
                   aria-label={`Remove option ${letter}`}
                   title="Remove option"
                   onClick={() => onChange(removeOption(draft, index, optionIndex))}
@@ -264,6 +269,82 @@ function QuestionCard({
         ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * Time to answer as − / time / +, in 15 second steps from 0:15 to 10:00. Tapping
+ * the time turns it into a field for typing m:ss; Enter or leaving it saves,
+ * Escape keeps the old time. A time outside the range is pulled into it.
+ */
+function AnswerTime({
+  seconds,
+  labelledBy,
+  onChange,
+}: {
+  seconds: number;
+  labelledBy: string;
+  onChange: (seconds: number) => void;
+}) {
+  // The typed text while editing, or null when the time shows as a button.
+  const [typed, setTyped] = useState<string | null>(null);
+
+  function commit() {
+    if (typed === null) return;
+    const parsed = parseClock(typed);
+    if (parsed !== null) onChange(clampAnswerSec(parsed));
+    setTyped(null);
+  }
+
+  return (
+    <div className="bw-stepper bw-answer-time__stepper" role="group" aria-labelledby={labelledBy}>
+      <button
+        type="button"
+        aria-label="15 seconds less"
+        disabled={seconds <= MIN_ANSWER_SEC}
+        onClick={() => onChange(clampAnswerSec(seconds - ANSWER_STEP_SEC))}
+      >
+        −
+      </button>
+      {typed === null ? (
+        <button
+          type="button"
+          className="bw-answer-time__value bw-mono"
+          aria-label={`${formatClock(seconds)}, change time`}
+          onClick={() => setTyped(formatClock(seconds))}
+        >
+          {formatClock(seconds)}
+        </button>
+      ) : (
+        <input
+          className="bw-answer-time__value bw-answer-time__input bw-mono"
+          value={typed}
+          autoFocus
+          inputMode="numeric"
+          maxLength={5}
+          aria-label="Time to answer, m:ss"
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setTyped(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commit();
+            if (event.key === "Escape") {
+              // Escape keeps the old time and must not close the modal.
+              event.stopPropagation();
+              setTyped(null);
+            }
+          }}
+        />
+      )}
+      <button
+        type="button"
+        aria-label="15 seconds more"
+        disabled={seconds >= MAX_ANSWER_SEC}
+        onClick={() => onChange(clampAnswerSec(seconds + ANSWER_STEP_SEC))}
+      >
+        +
+      </button>
+    </div>
   );
 }
 

@@ -9,7 +9,9 @@ import type { RoomTask, RoundMeta, RoundPlan, Workspace } from "@/types/breakout
 
 import ActivityList from "./ActivityList";
 import EditTaskModal from "./EditTaskModal";
+import RoundPages from "./RoundPages";
 import RoundSettingsModal from "./RoundSettingsModal";
+import { groupingOf } from "./screens/RoundsOverview";
 import { Button, Card, ConfirmModal, Pill, SectionLabel } from "./ui";
 
 type RoundPatch = Partial<Pick<RoundMeta, "title" | "durationSec">>;
@@ -32,6 +34,8 @@ export default function SessionPage({
   onUpdateRound,
   onDeleteRound,
   onSkipRound,
+  onRoomCount,
+  zoomBusy,
   challenges,
 }: {
   workspace: Workspace;
@@ -48,6 +52,10 @@ export default function SessionPage({
   onUpdateRound: (roundId: string, patch: RoundPatch) => Promise<void>;
   onDeleteRound: (roundId: string) => Promise<void>;
   onSkipRound: (roundId: string, skipped: boolean) => Promise<void>;
+  /** Resolves false when the change was not saved; reports its own errors. */
+  onRoomCount: (roundId: string, count: number) => Promise<boolean>;
+  /** A Zoom launch or close is running; rooms cannot change until it ends. */
+  zoomBusy: boolean;
   /** The poll and quiz cards; null when the round is closed and none ran. */
   challenges: ReactNode;
 }) {
@@ -56,6 +64,10 @@ export default function SessionPage({
   const [adding, setAdding] = useState(false);
   const positionOf = (roundId: string) => workspace.rounds.findIndex((round) => round.roundId === roundId) + 1;
   const settingsRound = workspace.rounds.find((round) => round.roundId === settingsFor) ?? null;
+  // The round that matters now: the live one, or the next to launch between rounds.
+  const currentId =
+    workspace.rounds.find((round) => round.status === "launched")?.roundId ?? nextRound?.roundId ?? null;
+  const currentIndex = workspace.rounds.findIndex((round) => round.roundId === currentId);
 
   async function addRound() {
     setAdding(true);
@@ -67,25 +79,34 @@ export default function SessionPage({
     <div className="bw-session">
       <section className="bw-session__column">
         <SectionLabel>Current Workflow</SectionLabel>
-        {workspace.rounds.map((round) => (
-          <RoundCard
-            key={round.roundId}
-            round={round}
-            label={roundLabel(workspace, round.roundId)}
-            editable={canEditRounds}
-            onSettings={() => setSettingsFor(round.roundId)}
-            onDelete={() => setDeletingId(round.roundId)}
-          />
-        ))}
-        {canEditRounds ? (
-          <Button
-            variant="secondary"
-            busy={adding}
-            onClick={() => void addRound()}
-          >
-            + Add round
-          </Button>
-        ) : null}
+        <RoundPages
+          className="bw-session-rounds"
+          currentIndex={currentIndex === -1 ? null : currentIndex}
+          items={workspace.rounds.map((round) => ({
+            key: round.roundId,
+            node: (
+              <RoundCard
+                round={round}
+                label={roundLabel(workspace, round.roundId)}
+                editable={canEditRounds}
+                onSettings={() => setSettingsFor(round.roundId)}
+                onDelete={() => setDeletingId(round.roundId)}
+              />
+            ),
+          }))}
+          footer={
+            canEditRounds ? (
+              <Button
+                variant="secondary"
+                className="bw-session-rounds__add"
+                busy={adding}
+                onClick={() => void addRound()}
+              >
+                + Add round
+              </Button>
+            ) : null
+          }
+        />
       </section>
 
       <section className="bw-session__column">
@@ -121,8 +142,11 @@ export default function SessionPage({
           round={settingsRound}
           position={positionOf(settingsRound.roundId)}
           plan={plans[settingsRound.roundId] ?? null}
+          grouping={groupingOf(workspace)}
+          zoomBusy={zoomBusy}
           onUpdateRound={onUpdateRound}
           onSkipRound={onSkipRound}
+          onRoomCount={(count) => onRoomCount(settingsRound.roundId, count)}
           onClose={() => setSettingsFor(null)}
         />
       ) : null}

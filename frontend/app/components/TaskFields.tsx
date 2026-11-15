@@ -1,5 +1,6 @@
 "use client";
 
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import { MAX_TASK_TEXT_LENGTH, type CheckListItem, type RoomTask } from "@/types/breakout";
 
 import ExpandingField from "./ExpandingField";
@@ -16,11 +17,16 @@ export default function TaskFields({
   task,
   setTask,
   save,
+  goalRows,
 }: {
   task: RoomTask;
   setTask: (task: RoomTask) => void;
   save: (task: RoomTask) => void;
+  /** Visible lines in the goal box; longer goals scroll inside it. */
+  goalRows: number;
 }) {
+  const goalScroll = useScrollReveal();
+
   /** Blank rows are working space while typing; they are dropped on save. */
   function commitLines(field: "instructions" | "resources", lines: string[]) {
     const next = { ...task, [field]: lines.map((line) => line.trim()).filter(Boolean) };
@@ -52,13 +58,17 @@ export default function TaskFields({
     <>
       <div className="bw-field">
         <SectionLabel>Goal shown to every room</SectionLabel>
-        <ExpandingField
-          className="bw-goal-input"
+        {/* A fixed-height box: it never grows or shrinks, and longer goals scroll inside. */}
+        <textarea
+          className="bw-goal-input bw-goal-input--area"
+          {...goalScroll}
+          rows={goalRows}
           value={task.goal}
           placeholder="What should this room achieve?"
+          aria-label="Goal shown to every room"
           maxLength={MAX_TASK_TEXT_LENGTH}
-          onChange={(goal) => setTask({ ...task, goal })}
-          onCommit={() => save(task)}
+          onChange={(event) => setTask({ ...task, goal: event.target.value })}
+          onBlur={() => save(task)}
         />
         <span className="bw-field__count">
           {task.goal.length} / {MAX_TASK_TEXT_LENGTH}
@@ -98,7 +108,7 @@ export default function TaskFields({
         />
       </div>
 
-      <div className="bw-field" style={{ maxWidth: 420 }}>
+      <div className="bw-field">
         <SectionLabel>Resources</SectionLabel>
         <LineList
           lines={task.resources}
@@ -160,7 +170,7 @@ function LineList({
             onCommit={() => onCommit(lines)}
           />
           <button
-            className="bw-icon-button"
+            className="bw-icon-button bw-close"
             aria-label="Remove line"
             onClick={() => onRemove(index)}
           >

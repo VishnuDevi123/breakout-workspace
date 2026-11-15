@@ -101,7 +101,7 @@ export default function ActivityList({
               </span>
               <span className="bw-activity-card__kind">{kind.label}</span>
               <button
-                className="bw-icon-button"
+                className="bw-icon-button bw-close"
                 aria-label={`Remove ${label}`}
                 onClick={(event) => {
                   event.stopPropagation();

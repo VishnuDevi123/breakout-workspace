@@ -9,10 +9,10 @@ import { initialsFrom, type Participant } from "@/lib/participant-status";
 import { assignParticipantToRoom, newPlacements } from "@/lib/room-plan-assignments";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { copyRooms, groupsForLaunch } from "@/lib/room-plan-copy";
-import { settleForLaunch } from "@/lib/room-plan-assignments";
+import { settleForLaunch, shuffleEvenly } from "@/lib/room-plan-assignments";
 import { useLiveRoomController } from "@/lib/use-live-room-controller";
 import { useLiveState } from "@/lib/use-live-state";
-import { newRoom, useRoomPlan } from "@/lib/use-room-plan";
+import { newRoom, useRoomPlan, withRoomCount } from "@/lib/use-room-plan";
 import { useRoundTasks } from "@/lib/use-round-tasks";
 import { useRoundSummaries } from "@/lib/use-round-summaries";
 import { useWorkflowLibrary } from "@/lib/use-workflow-library";
@@ -334,6 +334,49 @@ export default function HostWorkspace({
     });
   }
 
+  /**
+   * Round settings on the live page: the round gets `count` rooms. "New groups"
+   * keeps the same rooms every round, so the rounds after it that have not run
+   * change too, and everyone here is dealt into them afresh. "Each round" changes
+   * this round only; people in a removed room go back to Not yet placed.
+   * "Same groups" copies the last round's groups at launch, so it never asks.
+   */
+  async function setRoomCount(roundId: string, count: number): Promise<boolean> {
+    if (workspace.state.kind !== "ready") return false;
+    const current = workspace.state.workspace;
+    if (current.samePeopleEveryRound) return false;
+    const index = current.rounds.findIndex((round) => round.roundId === roundId);
+    if (index < 0) return false;
+    const notRun = (round: RoundMeta) => round.status === "planned" || round.status === "skipped";
+    const targets = current.sameRoomsEveryRound
+      ? current.rounds.slice(index).filter(notRun)
+      : [current.rounds[index]].filter(notRun);
+    // The host and co-hosts are never placed in a room.
+    const attendees = (live.liveState?.participants ?? [])
+      .filter((p) => p.location !== "left" && p.role === "attendee")
+      .map((p) => p.participantUUID);
+
+    let saved = false;
+    await reportFailure("Could not change the rooms.", async () => {
+      for (const round of targets) {
+        // A round nobody set up has no saved plan yet.
+        const plan = await readSavedRoundPlan(meetingUUID, round.roundId).catch(() => null);
+        const draft: RoundPlanDraft = plan ?? {
+          parentUUID: meetingUUID,
+          roundId: round.roundId,
+          title: roundLabel(current, round.roundId),
+          rooms: [],
+          stayInMainParticipantUUIDs: [],
+        };
+        const sized = withRoomCount(draft, count);
+        await saveRoundPlan(meetingUUID, current.sameRoomsEveryRound ? shuffleEvenly(sized, attendees) : sized, plan?.revision ?? 0);
+      }
+      saved = true;
+    });
+    reloadPlans();
+    return saved;
+  }
+
   /** Runs a live-page action and turns a failure into a toast; the caller's spinner then stops. */
   async function reportFailure(failure: string, action: () => Promise<unknown>) {
     try {
@@ -515,6 +558,7 @@ export default function HostWorkspace({
         onEndRound={controller.close}
         onLaunchNext={() => nextRound && controller.launch(nextRound.roundId)}
         onLaunchNextWithRooms={launchNextWithRooms}
+        onRoomCount={setRoomCount}
         onEndWorkflow={endWorkflow}
         onPlace={placeInLiveRound}
         onMove={moveInLiveRound}
