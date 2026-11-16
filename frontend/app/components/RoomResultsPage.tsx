@@ -1,9 +1,14 @@
 "use client";
 
-import { ACTIVITY_KINDS } from "@/lib/activity-kinds";
-import { initialsFrom } from "@/lib/participant-status";
+import { useEffect, useRef, useState } from "react";
+
+import { roomProgress } from "@/lib/activity-kinds";
 import type { Activity, CheckListItem, PlannedRoom, RoomResponsesHostView } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
+import ActivityCard from "./ActivityCard";
+import RoomStepper from "./RoomStepper";
+import SharedChecklist from "./SharedChecklist";
 import { Card, SectionLabel, StatusDot } from "./ui";
 
 /** Where a planned person is while rooms are open. */
@@ -11,9 +16,9 @@ export type RoomPresence = "room" | "main" | "elsewhere" | "left";
 
 const PRESENCE_LABELS: Record<RoomPresence, string> = {
   room: "In room",
-  main: "In main room",
+  main: "In main meeting",
   elsewhere: "In another room",
-  left: "Not in meeting",
+  left: "Not joined",
 };
 
 export interface RoomPerson {
@@ -24,13 +29,15 @@ export interface RoomPerson {
 }
 
 /**
- * One room's work for the host. Left column, top to bottom: "← All rooms", the
- * room's name and head count, its people, the checklist. Right column: one card
- * per activity with a count, starting level with the back link. Submissions themselves open from an activity card, so
- * this page stays readable however much a room has written.
+ * One room's work for the host. "All rooms" and the room stepper on top; then the room's
+ * people on the left, and its checklist and activities on the right. Submissions
+ * open from an activity card, so this page stays readable however much a room wrote.
  */
 export default function RoomResultsPage({
   room,
+  position,
+  roomCount,
+  onStep,
   people,
   presentCount,
   otherRooms,
@@ -42,138 +49,217 @@ export default function RoomResultsPage({
   onOpenActivity,
 }: {
   room: PlannedRoom;
+  /** Zero-based place of this room in the round. */
+  position: number;
+  roomCount: number;
+  /** -1 for the room before, 1 for the one after. */
+  onStep: (step: -1 | 1) => void;
   /** Everyone the plan puts in this room; names are for information only. */
   people: RoomPerson[];
   presentCount: number;
   /** Rooms someone can be moved to; empty once the rooms are closed. */
   otherRooms: PlannedRoom[];
-  onMove: (person: RoomPerson, roomName: string) => void;
+  /** `roomName` null sends the person back to the main meeting. */
+  onMove: (person: RoomPerson, roomName: string | null) => void;
   checklist: CheckListItem[];
   activities: Activity[];
   results: RoomResponsesHostView | null;
   onBack: () => void;
   onOpenActivity: (activityId: string) => void;
 }) {
+  // One menu open at a time, by person.
+  const [movingId, setMovingId] = useState<string | null>(null);
+
   return (
-    <div className="bw-results__split">
-      <div className="bw-results__side">
-        <button type="button" className="bw-results__back" onClick={onBack}>
-          ← All rooms
+    <div className="bw-room-page">
+      <div className="bw-room-nav">
+        <button type="button" className="bw-room-nav__all" onClick={onBack}>
+          All rooms
         </button>
-        <div className="bw-results__bar">
-          <StatusDot color={room.dot} />
-          <span className="bw-results__title">{room.name}</span>
-          <span className="bw-results__count">
-            {presentCount} of {people.length} here
-          </span>
-        </div>
-        <section className="bw-results__people" aria-label="People in this room">
-          <SectionLabel>People</SectionLabel>
+        <RoomStepper room={room} position={position} roomCount={roomCount} onStep={onStep} />
+      </div>
+
+      <div className="bw-results__split">
+        <Card className="bw-room-people" aria-label="People in this room">
+          <div className="bw-room-people__header">
+            <SectionLabel>People</SectionLabel>
+            <span className="bw-room-people__count">
+              {presentCount} of {people.length} here
+            </span>
+          </div>
           {people.length === 0 ? <span className="bw-results__meta">Nobody planned here</span> : null}
           {people.map((person) => (
-            <div className="bw-results__person" key={person.participantUUID}>
-              <span className="bw-initials" aria-hidden>
-                {initialsFrom(person.name)}
-              </span>
-              {/* Where they are sits under the name, so a narrow column keeps the name readable. */}
-              <span className="bw-results__person-text">
-                <span className="bw-results__person-name" title={person.name}>{person.name}</span>
-                {person.presence ? (
-                  <span className={`bw-room-member__status bw-room-member__status--${person.presence === "room" ? "done" : "open"}`}>
-                    {PRESENCE_LABELS[person.presence]}
-                  </span>
-                ) : null}
-              </span>
-              {otherRooms.length > 0 && person.presence !== "left" ? (
-                <select
-                  className="bw-person-move"
-                  aria-label={`Move ${person.name} to another room`}
-                  value=""
-                  onChange={(event) => onMove(person, event.target.value)}
-                >
-                  <option value="" disabled>
-                    Move
-                  </option>
-                  {otherRooms.map((other) => (
-                    <option key={other.id} value={other.name}>
-                      {other.name}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
+            <PersonRow
+              key={person.participantUUID}
+              person={person}
+              otherRooms={otherRooms}
+              menuOpen={movingId === person.participantUUID}
+              onMenu={(open) => setMovingId(open ? person.participantUUID : null)}
+              onMove={(roomName) => {
+                setMovingId(null);
+                onMove(person, roomName);
+              }}
+            />
+          ))}
+        </Card>
+
+        <section className="bw-results__work">
+          <SharedChecklist title="Checklist" items={checklist} ticks={results?.ticks} />
+          <SectionLabel>Activities</SectionLabel>
+          {activities.length === 0 ? (
+            <Card tone="dashed" className="bw-activity-empty">No activities in this round.</Card>
+          ) : null}
+          {activities.map((activity, index) => (
+            <ActivityCard
+              key={activity.id}
+              mode="monitor"
+              activity={activity}
+              index={index}
+              progress={roomProgress(activity, people.length, results)}
+              onOpen={() => onOpenActivity(activity.id)}
+            />
           ))}
         </section>
-        {checklist.length > 0 ? <ChecklistSummary items={checklist} results={results} /> : null}
       </div>
-
-      <section className="bw-results__work">
-        <SectionLabel>Activities</SectionLabel>
-        {activities.length === 0 ? (
-          <Card tone="dashed" className="bw-activity-empty">No activities in this round.</Card>
-        ) : null}
-        {activities.map((activity) => {
-          const kind = ACTIVITY_KINDS[activity.kind];
-          return (
-            <button
-              type="button"
-              key={activity.id}
-              className="bw-results__activity"
-              onClick={() => onOpenActivity(activity.id)}
-            >
-              <span className="bw-activity-badge" style={{ background: kind.tint, color: kind.ink }}>
-                {kind.label}
-              </span>
-              <span className="bw-results__meta">{progressText(activity, people.length, results)}</span>
-              <span className="bw-results__chevron" aria-hidden>›</span>
-            </button>
-          );
-        })}
-      </section>
     </div>
   );
 }
 
-/** The count on an activity card and atop its submissions page. */
-function progressText(activity: Activity, peopleCount: number, results: RoomResponsesHostView | null): string {
-  if (activity.kind === "individual") {
-    const answers = Object.values(results?.answers[activity.id] ?? {});
-    const submitted = answers.filter((answer) => answer.status === "submitted").length;
-    return `${submitted} of ${peopleCount} submitted`;
-  }
-  const notes = results?.ideas[activity.id] ?? [];
-  const authors = new Set(notes.map((note) => note.participantUUID)).size;
-  return `${notes.length} ${notes.length === 1 ? "idea" : "ideas"} from ${authors} ${authors === 1 ? "person" : "people"}`;
-}
-
-/** Read-only: which items are done. Who ticked an item is not shown. */
-function ChecklistSummary({
-  items,
-  results,
+/** One planned person: avatar, name, where they are, and the move menu while rooms are open. */
+function PersonRow({
+  person,
+  otherRooms,
+  menuOpen,
+  onMenu,
+  onMove,
 }: {
-  items: CheckListItem[];
-  results: Pick<RoomResponsesHostView, "ticks"> | null;
+  person: RoomPerson;
+  otherRooms: PlannedRoom[];
+  menuOpen: boolean;
+  onMenu: (open: boolean) => void;
+  onMove: (roomName: string | null) => void;
 }) {
-  const doneCount = items.filter((item) => results?.ticks[item.id]).length;
+  const away = person.presence === "left";
+  // Someone who left the meeting cannot be moved; nobody can be moved once rooms close.
+  const movable = otherRooms.length > 0 && person.presence !== null && !away;
 
   return (
-    <div className="bw-checklist">
-      <div className="bw-checklist__header">
-        <span className="bw-checklist__title">Checklist</span>
-        <div style={{ flex: 1 }} />
-        <span className="bw-results__meta">
-          {doneCount} of {items.length} done
+    <div className={`bw-room-person${away ? " bw-room-person--away" : ""}`}>
+      <PersonPill participantUUID={person.participantUUID} name={person.name} className="bw-initials bw-room-person__avatar" />
+      <span className="bw-room-person__text">
+        <span className="bw-room-person__name" title={person.name}>
+          {person.name}
         </span>
-      </div>
-      {items.map((item) => {
-        const tick = results?.ticks[item.id];
-        return (
-          <div className={`bw-checklist__row${tick ? " bw-checklist__row--done" : ""}`} key={item.id}>
-            <span className="bw-checklist__box" aria-hidden />
-            <span className="bw-checklist__label">{item.label}</span>
-          </div>
-        );
-      })}
+        {person.presence ? (
+          <span className={`bw-room-person__status${person.presence === "room" ? " bw-room-person__status--in" : ""}`}>
+            {PRESENCE_LABELS[person.presence]}
+          </span>
+        ) : null}
+      </span>
+      {movable ? (
+        <MoveMenu
+          person={person}
+          otherRooms={otherRooms}
+          open={menuOpen}
+          onOpenChange={onMenu}
+          onMove={onMove}
+        />
+      ) : null}
     </div>
   );
 }
+
+/** The ⇄ button and its menu: every other room, then the main meeting. Closes on a pick, Escape or a click outside. */
+function MoveMenu({
+  person,
+  otherRooms,
+  open,
+  onOpenChange,
+  onMove,
+}: {
+  person: RoomPerson;
+  otherRooms: PlannedRoom[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMove: (roomName: string | null) => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const firstName = person.name.trim().split(/\s+/)[0] || person.name;
+  // The latest callback, so live updates re-rendering the page do not re-run the effect below.
+  const change = useRef(onOpenChange);
+  useEffect(() => {
+    change.current = onOpenChange;
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    wrap.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    function onPointer(event: PointerEvent) {
+      if (!wrap.current?.contains(event.target as Node)) change.current(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      change.current(false);
+      button.current?.focus();
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="bw-move" ref={wrap}>
+      <button
+        ref={button}
+        type="button"
+        className="bw-move__button"
+        aria-label={`Move ${person.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => onOpenChange(!open)}
+      >
+        ⇄
+      </button>
+      {open ? (
+        <div className="bw-move__menu" role="menu" aria-label={`Move ${firstName} to`}>
+          <span className="bw-move__title" title={`Move ${firstName} to`}>
+            Move {firstName} to
+          </span>
+          {otherRooms.map((other) => (
+            <button
+              key={other.id}
+              type="button"
+              role="menuitem"
+              className="bw-move__item"
+              onClick={() => onMove(other.name)}
+            >
+              <StatusDot color={other.dot} />
+              <span className="bw-move__room" title={other.name}>
+                {other.name}
+              </span>
+              <span className="bw-move__count">
+                {other.participantUUIDs.length} {other.participantUUIDs.length === 1 ? "person" : "people"}
+              </span>
+            </button>
+          ))}
+          {person.presence !== "main" ? (
+            <>
+              <span className="bw-move__divider" aria-hidden />
+              <button type="button" role="menuitem" className="bw-move__item" onClick={() => onMove(null)}>
+                <span className="bw-move__icon" aria-hidden>
+                  ↩
+                </span>
+                <span className="bw-move__room">Main meeting</span>
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+

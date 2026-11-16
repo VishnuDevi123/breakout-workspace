@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { memberStatus } from "@/lib/activity-kinds";
 import { readPastRound, type EarlierRound, type PastRound } from "@/lib/use-past-rounds";
 import type { Activity, LiveState, RoomResponsesView } from "@/types/breakout";
 
@@ -123,9 +122,10 @@ function PastRoundBody({
   const { room, task, activities, view } = state.round;
   // Names from the live store while those people are still in the meeting.
   const people = room.participantUUIDs.map((uuid) => {
-    const name = uuid === participantUUID ? "You" : live?.participants.find((p) => p.participantUUID === uuid)?.name || "Participant";
-    const status = activities.length > 0 ? memberStatus(activities, view, uuid) : null;
-    return { participantUUID: uuid, name, status, done: status === "Submitted" };
+    const fullName = live?.participants.find((p) => p.participantUUID === uuid)?.name || "Participant";
+    const name = uuid === participantUUID ? "You" : fullName;
+    // Names only: the round is over, so there is no progress to show.
+    return { participantUUID: uuid, name, fullName, status: null, tone: "idle" } as const;
   });
 
   return (
@@ -146,7 +146,11 @@ function PastRoundBody({
         </section>
 
         <div className="bw-session__column">
-          <RoomPeople heading="In this room" people={people} />
+          {/* As tall as the "Task" label, so the people card lines up with the task card. */}
+          <span className="bw-section-label bw-room-layout__spacer" aria-hidden>
+            &nbsp;
+          </span>
+          <RoomPeople heading="In this room" people={people} selfUUID={participantUUID} />
         </div>
       </div>
     </>

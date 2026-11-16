@@ -1,39 +1,64 @@
-import { AVATAR_TINTS, initialsFrom } from "@/lib/participant-status";
+import PersonPill from "./PersonPill";
+import { Card, SectionLabel } from "./ui";
 
-import { SectionLabel } from "./ui";
+/** A status pill's colour: green when done, blue while working, grey before anything. */
+export type PersonTone = "done" | "working" | "idle";
+
+/** `memberStatus` lines and their tones. */
+export const MEMBER_TONES: Record<"Submitted" | "Working" | "Not started", PersonTone> = {
+  Submitted: "done",
+  Working: "working",
+  "Not started": "idle",
+};
 
 export interface RoomPerson {
   participantUUID: string;
+  /** "You" for the caller. */
   name: string;
+  /** The person's own name, shown for the caller with "(you)". */
+  fullName?: string;
   /** Short progress text, or null when there is nothing to track. */
   status: string | null;
-  done: boolean;
+  tone: PersonTone;
 }
 
 /**
- * A participant screen's people list, laid out like the host's People column:
- * initials, full name, and progress on the right. Each person keeps one tint by
- * their place in the list.
+ * A participant screen's people card: initials, name, and a status pill on the right.
+ * Each person keeps their own colour, the same as on every other screen.
  */
-export default function RoomPeople({ heading, people }: { heading: string; people: RoomPerson[] }) {
+export default function RoomPeople({
+  heading,
+  people,
+  selfUUID,
+}: {
+  heading: string;
+  people: RoomPerson[];
+  selfUUID: string;
+}) {
   return (
-    <section className="bw-session__column" aria-label={heading}>
-      <SectionLabel>{heading}</SectionLabel>
-      {people.map((person, index) => (
-        <div className="bw-results__person" key={person.participantUUID}>
-          <span className="bw-initials" style={{ background: AVATAR_TINTS[index % AVATAR_TINTS.length] }} aria-hidden>
-            {initialsFrom(person.name)}
-          </span>
-          <span className="bw-results__person-name" title={person.name}>
-            {person.name}
-          </span>
-          {person.status ? (
-            <span className={`bw-room-member__status bw-room-member__status--${person.done ? "done" : "open"}`}>
-              {person.status}
+    <Card className="bw-people" aria-label={heading}>
+      <div className="bw-people__header">
+        <SectionLabel>{heading}</SectionLabel>
+        <span className="bw-people__count">
+          {people.length} {people.length === 1 ? "person" : "people"}
+        </span>
+      </div>
+      {people.map((person) => {
+        const name = person.fullName ?? person.name;
+        const self = person.participantUUID === selfUUID;
+        return (
+          <div className="bw-people__row" key={person.participantUUID}>
+            <PersonPill participantUUID={person.participantUUID} name={name} className="bw-initials" />
+            <span className="bw-people__name" title={name}>
+              {name}
             </span>
-          ) : null}
-        </div>
-      ))}
-    </section>
+            {self ? <span className="bw-people__you">(you)</span> : null}
+            {person.status ? (
+              <span className={`bw-people__status bw-people__status--${person.tone}`}>{person.status}</span>
+            ) : null}
+          </div>
+        );
+      })}
+    </Card>
   );
 }

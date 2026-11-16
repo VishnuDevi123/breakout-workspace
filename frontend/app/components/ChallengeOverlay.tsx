@@ -3,11 +3,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { CHALLENGE_KINDS, currentQuestion, placeLabel, placeOf, winnerHeadline } from "@/lib/challenges";
-import { initialsFrom, personColor } from "@/lib/participant-status";
-import { roomTheme } from "@/lib/room-theme";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView, LiveParticipant, RoomChallengeAnswers } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
 import ChallengeLeaderboard from "./ChallengeLeaderboard";
 import ChallengeScrollBody from "./ChallengeScrollBody";
 import ChallengeTally from "./ChallengeTally";
@@ -15,24 +14,33 @@ import { Button, Modal } from "./ui";
 
 /** How long "Incoming" shows before the poll or quiz itself. Matches bwIncoming in globals.css. */
 const INTRO_MS = 1600;
+/** How long the announcer holds before the results. Matches the dots in globals.css. */
+const ANNOUNCE_MS = 2800;
+
+const ANNOUNCE_TEXT: Record<ChallengeView["kind"], string> = {
+  poll: "The poll results are in",
+  quiz: "And the winner is",
+};
 
 /**
  * A poll or quiz the host launched, as a card over the room page. It opens with
  * a short "Incoming" card, then the room answers one question at a time: every
  * tap is a suggestion, shown live as the people's initials and a bar filling to
  * the room's share on that option, and anyone can lock in the room's answer.
- * Results arrive by themselves when time is up, or earlier if the host reveals.
+ * Results arrive by themselves when time is up, or earlier if the host reveals:
+ * first a short announcer card, then the results build up one row at a time.
  */
 export default function ChallengeOverlay({
   challenge,
   answers,
   roomId,
   roomName,
-  roomDot,
   participants,
   participantUUID,
   intro,
   onIntroDone,
+  announce,
+  onAnnounceDone,
   onAnswer,
   onClose,
 }: {
@@ -40,8 +48,6 @@ export default function ChallengeOverlay({
   answers: RoomChallengeAnswers;
   roomId: string;
   roomName: string;
-  /** The card takes the room's colour, like the room bar. */
-  roomDot: string;
   /** For the names behind each suggestion's initials. */
   participants: LiveParticipant[];
   participantUUID: string;
@@ -49,6 +55,10 @@ export default function ChallengeOverlay({
   intro: boolean;
   /** Called with the challenge id once the card has shown. Must be stable (a state setter), or the timer restarts. */
   onIntroDone: (challengeId: string) => void;
+  /** Play the announcer before the results: true the first time the results show. */
+  announce: boolean;
+  /** Called with the challenge id once the announcer has shown. Must be stable, like onIntroDone. */
+  onAnnounceDone: (challengeId: string) => void;
   onAnswer: (part: "pick" | "lock", question: number, option: number) => Promise<void>;
   onClose: () => void;
 }) {
@@ -61,8 +71,15 @@ export default function ChallengeOverlay({
     return () => clearTimeout(timer);
   }, [intro, onIntroDone, challenge.id]);
 
+  const announcing = announce && challenge.revealed && challenge.results !== null;
+  useEffect(() => {
+    if (!announcing) return;
+    const timer = setTimeout(() => onAnnounceDone(challenge.id), ANNOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [announcing, onAnnounceDone, challenge.id]);
+
   return (
-    <Modal label={`${kind.label}: ${challenge.title}`} panelClassName="bw-play" panelStyle={roomTheme(roomDot)} onClose={onClose}>
+    <Modal label={`${kind.label}: ${challenge.title}`} panelClassName={`bw-play bw-challenge-panel--${challenge.kind}`} onClose={onClose}>
       {(close) =>
         intro ? (
           <div className="bw-incoming" aria-live="polite">
@@ -70,6 +87,19 @@ export default function ChallengeOverlay({
             <span className="bw-incoming__kind">{kind.label}</span>
             <span className="bw-incoming__title">{challenge.title}</span>
             <span className="bw-incoming__bar" />
+          </div>
+        ) : announcing ? (
+          <div className="bw-incoming bw-incoming--announce" aria-live="polite">
+            <span className="bw-incoming__label">{kind.label} results</span>
+            <span className="bw-incoming__kind">
+              {ANNOUNCE_TEXT[challenge.kind]}
+              <span className="bw-drumroll" aria-hidden>
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            </span>
+            <span className="bw-incoming__title">{challenge.title}</span>
           </div>
         ) : (
           <>
@@ -81,7 +111,7 @@ export default function ChallengeOverlay({
                 {isQuiz ? ` · ${challenge.title}` : ""}
               </span>
               {challenge.revealed ? null : <TimeLeft endsAt={challenge.endsAt} />}
-              <button className="bw-back-button" aria-label="Back to the room" title="Back to the room" onClick={close}>
+              <button className="bw-back-button bw-close" aria-label="Back to the room" title="Back to the room" onClick={close}>
                 ✕
               </button>
             </header>
@@ -197,9 +227,7 @@ function Answering({
               <span className="bw-play__option-text">{option}</span>
               <span className="bw-play__who">
                 {leaning.map((uuid) => (
-                  <span key={uuid} className="bw-play__initials" style={{ background: personColor(uuid) }} title={nameOf(uuid)}>
-                    {initialsFrom(nameOf(uuid))}
-                  </span>
+                  <PersonPill key={uuid} participantUUID={uuid} name={nameOf(uuid)} className="bw-play__initials" label={nameOf(uuid)} />
                 ))}
               </span>
               {mine ? <span className="bw-play__check" aria-hidden="true">✓</span> : null}
@@ -235,7 +263,7 @@ function Revealed({ challenge, roomId }: { challenge: ChallengeView; roomId: str
 
   if (challenge.kind === "poll") {
     return (
-      <div className="bw-play__answer bw-swap-in">
+      <div className="bw-play__answer bw-reveal bw-reveal--poll">
         <p className="bw-play__question">{challenge.questions[0].text}</p>
         <ChallengeTally question={challenge.questions[0]} index={0} results={results} ownRoomId={roomId} hideQuestion />
       </div>
@@ -247,8 +275,12 @@ function Revealed({ challenge, roomId }: { challenge: ChallengeView; roomId: str
   const tied = own ? results.rooms.some((room) => room.roomId !== own.roomId && room.correct === own.correct) : false;
 
   return (
-    <div className="bw-play__answer bw-swap-in">
+    // The headline first, then the leaderboard from last place up to the winner, then the answers.
+    <div className="bw-play__answer bw-reveal bw-reveal--quiz" style={{ "--bw-n": results.rooms.length } as CSSProperties}>
       <div className="bw-play__score">
+        <span className="bw-play__trophy" aria-hidden>
+          🏆
+        </span>
         <span className="bw-play__score-title">{winnerHeadline(results, roomId)}</span>
         {own ? (
           <span className="bw-play__score-hint">

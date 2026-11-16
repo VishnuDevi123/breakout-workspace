@@ -1,10 +1,19 @@
 import {
+  MAX_ACTIVITY_DESCRIPTION_LENGTH,
+  MAX_ACTIVITY_TITLE_LENGTH,
+  MAX_CHECKLIST_ITEM_LENGTH,
+  MAX_CHECKLIST_ITEMS,
+  MAX_TASK_GOAL_LENGTH,
+  MAX_TASK_STEP_LENGTH,
+  MAX_TASK_RESOURCES,
+  MAX_TASK_STEPS,
   MAX_TASK_TEXT_LENGTH,
   type Activity,
   type CheckListItem,
   type RoomTask,
   type RoundTasks,
   type SaveRoundTasksRequest,
+  httpsLinks,
 } from "../types/breakout.ts";
 import { pruneResponses } from "./activity_responses.ts";
 import { bumpTaskRevision } from "./live.ts";
@@ -14,20 +23,17 @@ import { HttpError, isRecord, requiredString } from "../services/http-error.ts";
 // One record per round (item "round#<roundId>#tasks"). Separate from round-plans:
 // tasks change after launch, drafts do not.
 const MAX_ACTIVITIES = 6;
-const CHECKLIST_ITEMS = 6;
-const MAX_LINES = 20;
-const MAX_DESCRIPTION_LENGTH = 2000;
 
 /** Trimmed, non-empty lines only. Empty array allowed. */
-function stringLines(value: unknown, field: string): string[] {
-  if (!Array.isArray(value) || value.length > MAX_LINES) {
-    throw new HttpError(`${field} must be an array of 0 to ${MAX_LINES} lines.`, 400);
+function stringLines(value: unknown, field: string, maxLines: number, maxLength: number): string[] {
+  if (!Array.isArray(value) || value.length > maxLines) {
+    throw new HttpError(`${field} must be an array of 0 to ${maxLines} lines.`, 400);
   }
   return value
     .map((line: unknown, index: number) => {
-      if (typeof line !== "string" || line.length > MAX_TASK_TEXT_LENGTH) {
+      if (typeof line !== "string" || line.length > maxLength) {
         throw new HttpError(
-          `${field}[${index}] must be a string of at most ${MAX_TASK_TEXT_LENGTH} characters.`,
+          `${field}[${index}] must be a string of at most ${maxLength} characters.`,
           400,
         );
       }
@@ -38,32 +44,33 @@ function stringLines(value: unknown, field: string): string[] {
 
 function validateRoomTask(value: unknown, field: string): RoomTask {
   if (!isRecord(value)) throw new HttpError(`${field} must be an object.`, 400);
-  if (typeof value.goal !== "string" || value.goal.length > MAX_TASK_TEXT_LENGTH) {
-    throw new HttpError(`${field}.goal must be a string of at most ${MAX_TASK_TEXT_LENGTH} characters.`, 400);
+  if (typeof value.goal !== "string" || value.goal.length > MAX_TASK_GOAL_LENGTH) {
+    throw new HttpError(`${field}.goal must be a string of at most ${MAX_TASK_GOAL_LENGTH} characters.`, 400);
   }
   return {
     // May be empty: a host can write steps or a checklist before the goal.
     goal: value.goal.trim(),
-    instructions: stringLines(value.instructions, `${field}.instructions`),
-    resources: stringLines(value.resources, `${field}.resources`),
+    instructions: stringLines(value.instructions, `${field}.instructions`, MAX_TASK_STEPS, MAX_TASK_STEP_LENGTH),
+    // The editor refuses a line that is not a link; one from an older template is dropped here.
+    resources: httpsLinks(stringLines(value.resources, `${field}.resources`, MAX_TASK_RESOURCES, MAX_TASK_TEXT_LENGTH)),
     // Undefined until the frontend sends the field.
     checklist: validateChecklistItems(value.checklist ?? [], `${field}.checklist`),
   };
 }
 
-/** Non-empty, trimmed, at most MAX_TASK_TEXT_LENGTH characters. for activities */
-function title(value: unknown, field: string): string {
+/** Non-empty and trimmed: activity titles and checklist items, each with its own limit. */
+function title(value: unknown, field: string, maxLength: number): string {
   const text = requiredString(value, field).trim();
-  if (text.length > MAX_TASK_TEXT_LENGTH) {
-    throw new HttpError(`${field} must be at most ${MAX_TASK_TEXT_LENGTH} characters.`, 400);
+  if (text.length > maxLength) {
+    throw new HttpError(`${field} must be at most ${maxLength} characters.`, 400);
   }
   return text;
 }
 
-/** May be empty. Trimmed, at most MAX_DESCRIPTION_LENGTH characters. */
+/** May be empty. Trimmed, at most MAX_ACTIVITY_DESCRIPTION_LENGTH characters. */
 function description(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.length > MAX_DESCRIPTION_LENGTH) {
-    throw new HttpError(`${field} must be a string of at most ${MAX_DESCRIPTION_LENGTH} characters.`, 400);
+  if (typeof value !== "string" || value.length > MAX_ACTIVITY_DESCRIPTION_LENGTH) {
+    throw new HttpError(`${field} must be a string of at most ${MAX_ACTIVITY_DESCRIPTION_LENGTH} characters.`, 400);
   }
   return value.trim();
 }
@@ -75,14 +82,14 @@ function assertUniqueIds(entries: { id: string }[], field: string): void {
 }
 
 function validateChecklistItems(value: unknown, field: string): CheckListItem[] {
-  if (!Array.isArray(value) || value.length > CHECKLIST_ITEMS) {
-    throw new HttpError(`${field} must be an array of 0 to ${CHECKLIST_ITEMS} items.`, 400);
+  if (!Array.isArray(value) || value.length > MAX_CHECKLIST_ITEMS) {
+    throw new HttpError(`${field} must be an array of 0 to ${MAX_CHECKLIST_ITEMS} items.`, 400);
   }
   const items = value.map((item: unknown, index: number) => {
     if (!isRecord(item)) throw new HttpError(`${field}[${index}] must be an object.`, 400);
     return {
       id: requiredString(item.id, `${field}[${index}].id`),
-      label: title(item.label, `${field}[${index}].label`),
+      label: title(item.label, `${field}[${index}].label`, MAX_CHECKLIST_ITEM_LENGTH),
     };
   });
   assertUniqueIds(items, field);
@@ -93,7 +100,7 @@ function validateChecklistItems(value: unknown, field: string): CheckListItem[] 
 function validateActivity(value: unknown, field: string): Activity {
   if (!isRecord(value)) throw new HttpError(`${field} must be an object.`, 400);
   const id = requiredString(value.id, `${field}.id`);
-  const activityTitle = title(value.title, `${field}.title`);
+  const activityTitle = title(value.title, `${field}.title`, MAX_ACTIVITY_TITLE_LENGTH);
 
   switch (value.kind) {
     case "individual":

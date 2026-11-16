@@ -26,10 +26,10 @@ export const ROUND_TEMPLATES: RoundTemplate[] = [
   },
 ];
 
-/** A sample as a workflow to load: its rounds only, with no rooms or tasks yet. */
-export function sampleSnapshot(template: RoundTemplate, title: string): WorkflowSnapshot {
+/** A sample as a workflow to load, named after it: its rounds only, with no rooms or tasks yet. */
+export function sampleSnapshot(template: RoundTemplate): WorkflowSnapshot {
   return {
-    title,
+    title: template.name,
     sameRoomsEveryRound: false,
     samePeopleEveryRound: false,
     autoStartNextRound: true,

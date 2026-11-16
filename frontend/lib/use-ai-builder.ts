@@ -38,6 +38,12 @@ function warnIfLow(promptsLeft: number) {
 }
 
 /**
+ * The last count read, kept while the app stays open: coming back to the home page
+ * shows it at once, then the fresh read replaces it.
+ */
+let lastPromptsLeft: number | null = null;
+
+/**
  * The AI builder chat. Kept apart from use-workspace (the saved workflow) and
  * use-workflow-library (templates): nothing here is saved until the host uses a proposal.
  */
@@ -45,11 +51,15 @@ export function useAiBuilder() {
   const [turns, setTurns] = useState<AiTurn[]>([]);
   const [pending, setPending] = useState(false);
   /** Null until the first read; the count shown under the prompt. */
-  const [promptsLeft, setPromptsLeft] = useState<number | null>(null);
+  const [promptsLeft, setCount] = useState<number | null>(lastPromptsLeft);
+  function setPromptsLeft(count: number) {
+    lastPromptsLeft = count;
+    setCount(count);
+  }
   const request = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Without the count the note stays hidden; drafting still works.
+    // Without the count the note keeps its placeholder; drafting still works.
     readAiUsage().then(({ promptsLeft }) => setPromptsLeft(promptsLeft), () => undefined);
   }, []);
 

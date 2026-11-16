@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { emptyDraft, listNames, type ChallengeKind } from "@/lib/challenges";
 import { adjustRoundTime } from "@/lib/execution-api";
-import { initialsFrom } from "@/lib/participant-status";
 import { assignParticipantToRoom, autoAssignParticipantsEvenly } from "@/lib/room-plan-assignments";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { useRoundChallenges } from "@/lib/use-challenges";
@@ -23,9 +22,11 @@ import type {
   RoundPlanDraft,
   Workspace,
 } from "@/types/breakout";
+import { MAX_ROOMS } from "@/types/breakout";
 
 import { toast } from "sonner";
 
+import PersonPill from "./PersonPill";
 import ActivityResultsPage from "./ActivityResultsPage";
 import ChallengeEditor from "./ChallengeEditor";
 import ChallengeResultsModal from "./ChallengeResultsModal";
@@ -79,6 +80,8 @@ export default function LiveRound({
   onSkipRound,
   onEndRound,
   onLaunchNext,
+  onLaunchNextWithRooms,
+  onRoomCount,
   onEndWorkflow,
   onPlace,
   onMove,
@@ -100,12 +103,19 @@ export default function LiveRound({
   onSkipRound: (roundId: string, skipped: boolean) => Promise<void>;
   onEndRound: () => void;
   onLaunchNext: () => void;
+  /** Gives the next round `count` rooms with everyone placed evenly, then launches it. */
+  onLaunchNextWithRooms: (count: number) => Promise<void>;
+  /** Round settings: an upcoming round's room count (and the later ones' in "New groups"). Reports its own errors. */
+  onRoomCount: (roundId: string, count: number) => Promise<boolean>;
   /** Offered once every round has run. Reports its own errors. */
   onEndWorkflow: () => Promise<void>;
   /** Saves the round with people added to rooms and moves them in Zoom. Reports its own errors. */
   onPlace: (next: RoundPlanDraft) => Promise<void>;
-  /** Asks Zoom to move someone to another open room; the plan follows when Zoom reports it. Reports its own errors. */
-  onMove: (person: { participantUUID: string; name: string }, roomName: string) => Promise<void>;
+  /**
+   * Asks Zoom to move someone to another open room, or back to the main meeting with null;
+   * the plan follows when Zoom reports it. Reports its own errors.
+   */
+  onMove: (person: { participantUUID: string; name: string }, roomName: string | null) => Promise<void>;
   /** Every round's saved plan, for the Session page's room summaries. */
   plans: Record<string, RoundPlan | null>;
   onAddRound: () => Promise<void>;
@@ -185,6 +195,11 @@ export default function LiveRound({
   const waiting = participants.filter(
     (p) => p.location === "main" && p.role === "attendee" && !planned.has(p.participantUUID),
   );
+  // The room count being chosen for a next round that has no rooms; null when not asking.
+  const [roomCount, setRoomCount] = useState<number | null>(null);
+
+  // True while the not-placed sheet is on screen, including its slide out.
+  const [sheetUp, setSheetUp] = useState(false);
 
   async function revealLatest() {
     if (challenges.latest) await challenges.reveal(challenges.latest.id);
@@ -233,6 +248,12 @@ export default function LiveRound({
     return uuid ? participants.filter((p) => p.location === uuid) : [];
   }
 
+  // "Same groups" builds the next round's rooms at launch; any other mode launches the rooms
+  // the host planned, so a round without them asks for a room count first. Undefined: plans still loading.
+  const nextPlan = nextRound ? plans[nextRound.roundId] : undefined;
+  const sameGroups = workspace.sameRoomsEveryRound && workspace.samePeopleEveryRound;
+  const nextNeedsSetup = !sameGroups && nextPlan !== undefined && !nextPlan?.rooms.length;
+
   // Keyed so a swap (adding or deleting the last upcoming round) fades in.
   // A co-host has no round controls; the slot names their role so the missing buttons read as intended.
   const actionButton = !canRunRounds ? (
@@ -242,7 +263,14 @@ export default function LiveRound({
       End round
     </Button>
   ) : nextRound ? (
-    <Button key="launch-next" className="bw-swap-in" size="sm" busy={busy} onClick={onLaunchNext}>
+    <Button
+      key="launch-next"
+      className="bw-swap-in"
+      size="sm"
+      busy={busy}
+      // The count starts at this round's number of rooms.
+      onClick={nextNeedsSetup ? () => setRoomCount(Math.max(1, round.rooms.length)) : onLaunchNext}
+    >
       Launch {roundLabel(workspace, nextRound.roundId)}
     </Button>
   ) : (
@@ -276,7 +304,7 @@ export default function LiveRound({
               title="Take a minute off this round"
               onClick={() => void adjustTime(-ADJUST_STEP_SEC)}
             >
-              -
+              −
             </button>
             <button
               disabled={!open}
@@ -293,8 +321,12 @@ export default function LiveRound({
     </>
   );
 
+  // During a round the sheet is only for people still to place: it slides in when someone
+  // joins late and slides out once the last of them is placed.
+  const hasWaiting = waiting.length > 0;
+  if (hasWaiting && !sheetUp) setSheetUp(true);
   const sheet =
-    page === "rooms" && !openRoom && open ? (
+    page === "rooms" && !openRoom && open && sheetUp ? (
       <NotPlacedSheet
         people={waiting}
         rooms={round.rooms}
@@ -305,6 +337,7 @@ export default function LiveRound({
         onPlaceEvenly={() =>
           void place("all", autoAssignParticipantsEvenly(round, waiting.map((p) => p.participantUUID)))
         }
+        slide={{ closing: !hasWaiting, onClosed: () => setSheetUp(false) }}
       />
     ) : null;
 
@@ -322,7 +355,13 @@ export default function LiveRound({
         {page === "rooms" && openRoom && openActivity ? (
           <ActivityResultsPage
             activity={openActivity}
-            roomName={openRoom.name}
+            room={openRoom}
+            position={round.rooms.findIndex((room) => room.id === openRoom.id)}
+            roomCount={round.rooms.length}
+            onStep={(step) => {
+              const next = round.rooms[round.rooms.findIndex((room) => room.id === openRoom.id) + step];
+              if (next) goTo({ kind: "activity", roomId: next.id, activityId: openActivity.id });
+            }}
             people={peopleIn(openRoom.id)}
             results={results}
             onBack={() => goTo({ kind: "room", roomId: openRoom.id })}
@@ -330,6 +369,13 @@ export default function LiveRound({
         ) : page === "rooms" && openRoom ? (
           <RoomResultsPage
             room={openRoom}
+            position={round.rooms.findIndex((room) => room.id === openRoom.id)}
+            roomCount={round.rooms.length}
+            onStep={(step) => {
+              const at = round.rooms.findIndex((room) => room.id === openRoom.id) + step;
+              const next = round.rooms[at];
+              if (next) goTo({ kind: "room", roomId: next.id });
+            }}
             people={peopleIn(openRoom.id)}
             presentCount={membersOf(openRoom.id).length}
             otherRooms={open ? round.rooms.filter((room) => room.id !== openRoom.id) : []}
@@ -362,28 +408,62 @@ export default function LiveRound({
             plans={plans}
             tasks={tasks}
             open={open}
+            nextRound={nextRound}
             canEditRounds={canRunRounds}
             onEditTask={() => setEditingTask(true)}
             onAddRound={onAddRound}
             onUpdateRound={onUpdateRound}
             onDeleteRound={onDeleteRound}
             onSkipRound={onSkipRound}
+            onRoomCount={onRoomCount}
+            zoomBusy={busy}
             challenges={
-              open || challenges.latest ? (
-                <ChallengeCards
-                  latest={challenges.latest}
-                  open={open}
-                  answeringRoomIds={answeringRooms.map((room) => room.id)}
-                  onNew={setEditingKind}
-                  onResults={() => setViewingResults(true)}
-                  onReveal={revealLatest}
-                />
-              ) : null
+              <ChallengeCards
+                latest={challenges.latest}
+                open={open}
+                answeringRoomIds={answeringRooms.map((room) => room.id)}
+                onNew={setEditingKind}
+                onResults={() => setViewingResults(true)}
+                onReveal={revealLatest}
+              />
             }
           />
         )}
       </PageFrame>
 
+      {roomCount !== null && nextRound ? (
+        <ConfirmModal
+          title={`Rooms for ${roundLabel(workspace, nextRound.roundId)}`}
+          message="This round has no rooms yet. Choose how many it needs."
+          details={
+            <div className="bw-stepper bw-confirm-stepper">
+              <button
+                type="button"
+                aria-label="Fewer rooms"
+                disabled={roomCount <= 1}
+                onClick={() => setRoomCount(roomCount - 1)}
+              >
+                −
+              </button>
+              <span className="bw-room-count">
+                {roomCount} {roomCount === 1 ? "room" : "rooms"}
+              </span>
+              <button
+                type="button"
+                aria-label="More rooms"
+                disabled={roomCount >= MAX_ROOMS}
+                onClick={() => setRoomCount(roomCount + 1)}
+              >
+                +
+              </button>
+            </div>
+          }
+          confirmLabel="Apply and launch"
+          confirmVariant="primary"
+          onConfirm={() => onLaunchNextWithRooms(roomCount)}
+          onClose={() => setRoomCount(null)}
+        />
+      ) : null}
       {confirmingEnd ? (
         <ConfirmModal
           title={`End ${round.title} now?`}
@@ -477,7 +557,7 @@ function LiveRoomCard({
 }) {
   return (
     <Card
-      className="bw-room-card bw-room-card--clickable"
+      className="bw-room-card bw-card-interactive"
       role="button"
       tabIndex={0}
       aria-label={`Open ${name}`}
@@ -492,20 +572,18 @@ function LiveRoomCard({
         <StatusDot color={dot} />
         <span className="bw-room-name bw-live-room-name" title={name}>{name}</span>
         <div style={{ flex: 1 }} />
-        <Pill tone="outline">{members.length} / {plannedCount}</Pill>
+        {open ? <Pill tone="outline">{members.length} / {plannedCount}</Pill> : null}
       </div>
       {members.length > 0 ? (
         <div className="bw-initials-list">
           {members.map((member) => (
-            <span
+            <PersonPill
               key={member.participantUUID}
+              participantUUID={member.participantUUID}
+              name={member.name}
               className="bw-initials"
-              title={member.name}
-              aria-label={member.name}
-              role="img"
-            >
-              {initialsFrom(member.name)}
-            </span>
+              label={member.name}
+            />
           ))}
         </div>
       ) : (

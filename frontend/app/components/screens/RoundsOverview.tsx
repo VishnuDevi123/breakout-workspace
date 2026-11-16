@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError, readRoundTasks, readSavedRoundPlan, saveRoundPlan } from "@/lib/execution-api";
@@ -8,7 +8,7 @@ import { formatClock } from "@/lib/round-clock";
 import { shuffleEvenly } from "@/lib/room-plan-assignments";
 import { copyRooms } from "@/lib/room-plan-copy";
 import { useLiveRoomController } from "@/lib/use-live-room-controller";
-import { newRoom } from "@/lib/use-room-plan";
+import { withRoomCount } from "@/lib/use-room-plan";
 import { MAX_ROOMS } from "@/types/breakout";
 import { roundLabel } from "@/lib/use-workspace";
 import type {
@@ -20,24 +20,40 @@ import type {
   ZoomRole,
 } from "@/types/breakout";
 
+import RoundPages from "../RoundPages";
 import SaveTemplateModal from "../SaveTemplateModal";
 import ZoomActionOverlay from "../ZoomActionOverlay";
 import { Button, Card, ConfirmModal, EditableName, SectionLabel } from "../ui";
 
 const DURATION_STEP_SEC = 30;
+/** The rooms counter saves once the host stops clicking, not on every click. */
+const ROOMS_SAVE_DELAY_MS = 400;
 const MIN_DURATION_SEC = 30;
 
 /** How rounds get their groups. Stored as the workspace's two existing flags. */
-type Grouping = "same" | "new" | "each";
+export type Grouping = "same" | "new" | "each";
 
 /** The workflow page's bulk edits; one runs at a time, only its button spins, and the others ignore clicks without fading. */
 type BulkAction = "rooms" | "assign";
 
-export const GROUPING_OPTIONS: { id: Grouping; label: string; hint: string }[] = [
-  { id: "same", label: "Same groups every round", hint: "Set rooms and people once, in Round 1." },
-  { id: "new", label: "New groups each round", hint: "Same rooms, people mixed up each round." },
-  { id: "each", label: "I'll set up each round", hint: "Every round has its own rooms and people." },
+/** `label` names the choice in full (AI proposals); the workflow page's cards show `short`. */
+export const GROUPING_OPTIONS: { id: Grouping; label: string; short: string; hint: string }[] = [
+  { id: "same", label: "Same groups every round", short: "Same groups", hint: "Set rooms and people once, in Round 1." },
+  { id: "new", label: "New groups each round", short: "New each round", hint: "Same rooms, people mixed up each round." },
+  { id: "each", label: "I'll set up each round", short: "Set each round", hint: "Every round has its own rooms and people. Set them up now by clicking the Round card or during the meeting." },
 ];
+
+/** 16px line icons for the grouping cards, drawn in the text colour. */
+const GROUPING_ICONS: Record<Grouping, React.ReactNode> = {
+  same: (
+    <>
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+      <path d="M10.5 2.5h-6a2 2 0 0 0-2 2v6" />
+    </>
+  ),
+  new: <path d="M2.5 5.5h10l-2.5-2.5M13.5 10.5h-10l2.5 2.5" />,
+  each: <path d="M10.5 2.5l3 3-8 8h-3v-3z" />,
+};
 
 const GROUPING_FLAGS: Record<Grouping, Pick<Workspace, "sameRoomsEveryRound" | "samePeopleEveryRound">> = {
   same: { sameRoomsEveryRound: true, samePeopleEveryRound: true },
@@ -52,12 +68,6 @@ export function groupingOf(workspace: Pick<Workspace, "sameRoomsEveryRound" | "s
 }
 
 /** Grow or shrink a draft to exactly `count` rooms. Shrinking unassigns whoever was in the last rooms. */
-function withRoomCount(draft: RoundPlanDraft, count: number): RoundPlanDraft {
-  const rooms = [...draft.rooms];
-  while (rooms.length < count) rooms.push(newRoom(rooms));
-  return { ...draft, rooms: rooms.slice(0, count) };
-}
-
 /** Rounds overview: order, titles and timing. Rooms are planned per round in the editor. */
 export default function RoundsOverview({
   workspace,
@@ -83,7 +93,7 @@ export default function RoundsOverview({
   onPlansChanged: () => void;
   live: LiveState | null;
   role: ZoomRole | null;
-  onLaunched: (roundId: string) => void;
+  onLaunched: (roundId: string, saved: Workspace | null) => void;
   onHome: () => void;
   onAddRound: () => Promise<void>;
   onDeleteRound: (roundId: string) => Promise<void>;
@@ -108,7 +118,10 @@ export default function RoundsOverview({
     null;
 
   const [applying, setApplying] = useState<BulkAction | null>(null);
+  // The same, for the rooms counter's delayed save: its callback holds an older render.
+  const applyingRef = useRef(false);
   const grouping = groupingOf(workspace);
+  const hintId = useId();
   // Everyone Zoom still reports in the meeting. The host is never placed in a room.
   const eligibleUUIDs = (live?.participants ?? [])
     .filter((participant) => participant.location !== "left" && participant.role === "attendee")
@@ -153,20 +166,26 @@ export default function RoundsOverview({
   async function applyToAllRounds(
     action: BulkAction,
     change: (draft: RoundPlanDraft) => RoundPlanDraft,
-    done: string,
+    /** Success toast; null when the control already shows the result. */
+    done: string | null,
     mode: Grouping = grouping,
-  ) {
-    if (applying) return;
+  ): Promise<boolean> {
+    if (applyingRef.current) return false;
+    applyingRef.current = true;
     setApplying(action);
     try {
       const editable = workspace.rounds.filter((round) => round.status === "planned" || round.status === "skipped");
-      for (const round of editable) await writePlan(round, change, mode);
+      // Each round is its own saved plan, so they save side by side.
+      await Promise.all(editable.map((round) => writePlan(round, change, mode)));
       onPlansChanged();
-      toast.success(done);
+      if (done) toast.success(done);
+      return true;
     } catch (error) {
       onPlansChanged();
       toast.error(error instanceof Error ? error.message : "Could not save the rooms.");
+      return false;
     } finally {
+      applyingRef.current = false;
       setApplying(null);
     }
   }
@@ -208,8 +227,67 @@ export default function RoundsOverview({
     return (ran ?? workspace.rounds[0]).roundId;
   }
 
+  // Every round: the rooms and people of the round that launches next.
+  const nextPlan = target ? (plans[target.roundId] ?? plans[groupsSourceFor(target.roundId)] ?? null) : null;
+  const savedRooms = nextPlan?.rooms.length ?? 0;
+  // The count just asked for, shown until the saved plans catch up (or the save fails).
+  const [pendingRooms, setPendingRooms] = useState<number | null>(null);
+  if (pendingRooms !== null && pendingRooms === savedRooms && applying === null) setPendingRooms(null);
+  const roomCount = pendingRooms ?? savedRooms;
+  const placed = new Set(nextPlan?.rooms.flatMap((room) => room.participantUUIDs) ?? []);
+  const unplaced = eligibleUUIDs.filter((uuid) => !placed.has(uuid)).length;
+
+  /**
+   * "New groups" deals everyone here into the new rooms, as the live page's round
+   * settings do; launch keeps a round's groups, so an added room would stay empty.
+   * "Same groups" keeps the host's groups; Assign evenly is there to mix them.
+   */
+  async function setEveryRoundRooms(count: number) {
+    setPendingRooms(count);
+    const resize = (draft: RoundPlanDraft) => withRoomCount(draft, count);
+    const saved = await applyToAllRounds(
+      "rooms",
+      grouping === "new" ? (draft) => shuffleEvenly(resize(draft), eligibleUUIDs) : resize,
+      null,
+    );
+    if (!saved) setPendingRooms(null);
+  }
+
+  const roomsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomsSaving = useRef(false);
+  /** The count asked for while a save was running; saved right after it. */
+  const roomsQueued = useRef<number | null>(null);
+
+  /**
+   * The counter shows each click at once and saves the count the host settles on.
+   * Saving every click would hold the counter for one save per round each time.
+   */
+  function askRooms(count: number) {
+    if (roomsTimer.current) clearTimeout(roomsTimer.current);
+    if (count === savedRooms && !roomsSaving.current) {
+      // Back where it started: nothing to save.
+      setPendingRooms(null);
+      return;
+    }
+    setPendingRooms(count);
+    roomsTimer.current = setTimeout(() => void saveRooms(count), ROOMS_SAVE_DELAY_MS);
+  }
+
+  async function saveRooms(count: number) {
+    if (roomsSaving.current) {
+      roomsQueued.current = count;
+      return;
+    }
+    roomsSaving.current = true;
+    await setEveryRoundRooms(count);
+    roomsSaving.current = false;
+    const queued = roomsQueued.current;
+    roomsQueued.current = null;
+    if (queued !== null && queued !== count) await saveRooms(queued);
+  }
+
   return (
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <button
           type="button"
@@ -242,34 +320,40 @@ export default function RoundsOverview({
       <div className="bw-body bw-workflow">
         <main className="bw-main">
           <p className="bw-round-list__hint">Click a round to edit its rooms and tasks</p>
-          <div className="bw-round-list">
-            {workspace.rounds.map((round, index) => (
-              <RoundRow
-                key={round.roundId}
-                round={round}
-                position={index + 1}
-                plan={plans[round.roundId] ?? null}
-                groupsFromPrevious={
-                  grouping === "same" && round.roundId !== firstRoundId
-                }
-                onRename={(title) =>
-                  run(() => onUpdateRound(round.roundId, { title }))
-                }
-                onDuration={(durationSec) =>
-                  run(() => onUpdateRound(round.roundId, { durationSec }))
-                }
-                onDelete={() => run(() => onDeleteRound(round.roundId))}
-                onOpen={() => onEditRound(round.roundId)}
-              />
-            ))}
-            <button
-              type="button"
-              className="bw-add-round"
-              onClick={() => void run(onAddRound)}
-            >
-              + Add round
-            </button>
-          </div>
+          <RoundPages
+            className="bw-round-list"
+            fill
+            items={workspace.rounds.map((round, index) => ({
+              key: round.roundId,
+              node: (
+                <RoundRow
+                  round={round}
+                  position={index + 1}
+                  plan={plans[round.roundId] ?? null}
+                  groupsFromPrevious={
+                    grouping === "same" && round.roundId !== firstRoundId
+                  }
+                  onRename={(title) =>
+                    run(() => onUpdateRound(round.roundId, { title }))
+                  }
+                  onDuration={(durationSec) =>
+                    run(() => onUpdateRound(round.roundId, { durationSec }))
+                  }
+                  onDelete={() => run(() => onDeleteRound(round.roundId))}
+                  onOpen={() => onEditRound(round.roundId)}
+                />
+              ),
+            }))}
+            footer={
+              <button
+                type="button"
+                className="bw-add-round"
+                onClick={() => void run(onAddRound)}
+              >
+                + Add round
+              </button>
+            }
+          />
         </main>
 
         <aside className="bw-rail bw-workflow__settings">
@@ -284,43 +368,71 @@ export default function RoundsOverview({
                 <input
                   type="radio"
                   name="grouping"
+                  className="bw-choice__input"
                   checked={grouping === option.id}
+                  aria-describedby={`${hintId}-${option.id}`}
                   onChange={() => void run(() => chooseGrouping(option.id))}
                 />
-                <span className="bw-choice__text">
-                  <span className="bw-choice__label">{option.label}</span>
-                  <span className="bw-choice__hint">{option.hint}</span>
-                </span>
+                <svg className="bw-choice__icon" viewBox="0 0 16 16" aria-hidden="true">
+                  {GROUPING_ICONS[option.id]}
+                </svg>
+                <span className="bw-choice__label">{option.short}</span>
               </label>
+            ))}
+          </div>
+          {/* Every hint sits in one cell, so the slot is as tall as the longest and nothing below moves. */}
+          <div className="bw-choice-hints">
+            {GROUPING_OPTIONS.map((option) => (
+              <p
+                key={option.id}
+                id={`${hintId}-${option.id}`}
+                className="bw-choice__hint"
+                data-shown={grouping === option.id ? "" : undefined}
+              >
+                {option.hint}
+              </p>
             ))}
           </div>
 
           {grouping === "each" ? null : (
             <>
               <SectionLabel>Every round</SectionLabel>
-              <RoomsForEveryRound
-                busy={applying === "rooms"}
-                onApply={(count) =>
-                  void applyToAllRounds(
-                    "rooms",
-                    (draft) => withRoomCount(draft, count),
-                    `Every round now has ${count} ${count === 1 ? "room" : "rooms"}.`,
-                  )
-                }
-              />
-              <div className="bw-rail-row">
-                <span>Assign people</span>
-                <div className="bw-rail-row__controls">
+              <div className="bw-every-round">
+                <div className="bw-every-round__row">
+                  <span className="bw-every-round__text">
+                    <span className="bw-every-round__title" id={`${hintId}-rooms`}>Rooms per round</span>
+                    <span className="bw-every-round__hint">{roomsHint(roomCount, eligibleUUIDs.length)}</span>
+                  </span>
+                  <div className="bw-count" role="group" aria-labelledby={`${hintId}-rooms`}>
+                    <button
+                      type="button"
+                      aria-label="Fewer rooms"
+                      disabled={roomCount <= 1 || applying === "assign"}
+                      onClick={() => askRooms(roomCount - 1)}
+                    >
+                      −
+                    </button>
+                    <span className="bw-count__value" aria-live="polite">{roomCount}</span>
+                    <button
+                      type="button"
+                      aria-label="More rooms"
+                      disabled={roomCount >= MAX_ROOMS || applying === "assign"}
+                      onClick={() => askRooms(roomCount + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="bw-every-round__row">
+                  <span className="bw-every-round__text">
+                    <span className="bw-every-round__title">People</span>
+                    <span className="bw-every-round__hint">{peopleHint(unplaced, eligibleUUIDs.length)}</span>
+                  </span>
                   <Button
-                    variant="secondary"
-                    size="sm"
+                    variant="ghost"
+                    className="bw-every-round__action"
                     busy={applying === "assign"}
                     disabled={eligibleUUIDs.length === 0}
-                    title={
-                      eligibleUUIDs.length > 0
-                        ? undefined
-                        : "Waiting for people to join."
-                    }
                     onClick={() => void assignEveryRound()}
                   >
                     Assign evenly
@@ -486,7 +598,7 @@ function LaunchWorkflow({
   /** "New groups": at launch, people who left are dropped and everyone present gets a room. */
   settledAtLaunch: boolean;
   prepareLaunch: (roundId: string) => Promise<void>;
-  onLaunched: (roundId: string) => void;
+  onLaunched: (roundId: string, saved: Workspace | null) => void;
   /** Shown above the Launch button (Save as template). */
   children: React.ReactNode;
 }) {
@@ -545,44 +657,19 @@ function LaunchWorkflow({
   );
 }
 
-/** Small box in the rail: one room count for every round at once. */
-function RoomsForEveryRound({
-  busy,
-  onApply,
-}: {
-  busy: boolean;
-  onApply: (count: number) => void;
-}) {
-  const [value, setValue] = useState("0");
-  const count = Number(value);
-  const valid = Number.isInteger(count) && count >= 1 && count <= MAX_ROOMS;
+/** "About 4 people each": how big the rooms come out with everyone here. */
+function roomsHint(rooms: number, people: number): string {
+  if (rooms === 0) return "No rooms yet";
+  if (people === 0) return "No one here yet";
+  if (people < rooms) return "More rooms than people";
+  const each = Math.round(people / rooms);
+  return `About ${each} ${each === 1 ? "person" : "people"} each`;
+}
 
-  return (
-    <div className="bw-rail-row">
-      <span>Rooms per round</span>
-      <div className="bw-rail-row__controls">
-        <input
-          type="number"
-          min={1}
-          max={MAX_ROOMS}
-          value={value}
-          aria-label="Rooms in every round"
-          className="bw-rooms-input bw-mono"
-          onChange={(event) => setValue(event.target.value)}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          busy={busy}
-          disabled={!valid}
-          title={valid ? undefined : `Enter 1 to ${MAX_ROOMS}.`}
-          onClick={() => onApply(count)}
-        >
-          Apply
-        </Button>
-      </div>
-    </div>
-  );
+function peopleHint(unplaced: number, people: number): string {
+  if (people === 0) return "Waiting for people to join";
+  if (unplaced === 0) return "Everyone is assigned";
+  return `${unplaced} not assigned yet`;
 }
 
 function RoundRow({
@@ -617,7 +704,7 @@ function RoundRow({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   return (
-    <Card className="bw-round-row" style={{ borderLeftColor: round.dot }}>
+    <Card className="bw-round-row bw-card-interactive" style={{ borderLeftColor: round.dot }}>
       <EditableName value={round.title} placeholder={`Round ${position}`} onSave={onRename} />
       <div className="bw-round-row__controls">
         <div className="bw-stepper">

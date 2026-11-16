@@ -3,6 +3,7 @@
 import { DRAFT_MEMBER_STATUS_LABEL, roleSuffix, type Participant } from "@/lib/participant-status";
 import type { PlannedRoom } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
 import { Card, EditableName, StatusDot } from "./ui";
 
 /** Editable planned-room card. Members come only from draft assignment IDs. */
@@ -70,11 +71,14 @@ export default function RoomCard({
               className={`bw-member-row${isAvailable || !rosterKnown ? "" : " bw-member-row--unavailable"}`}
               key={participant.participantUUID}
             >
-              <span className="bw-avatar">{participant.initials}</span>
-              <span className="bw-member-name" title={participant.displayName}>
-                {participant.displayName}{roleSuffix(participant.role)}
-              </span>
-              <span className="bw-member-status" title={status}>{status}</span>
+              {/* Initials only; the full name shows on hover and to screen readers. */}
+              <PersonPill
+                participantUUID={participant.participantUUID}
+                name={participant.displayName}
+                className="bw-avatar"
+                label={`${participant.displayName}${roleSuffix(participant.role)}`}
+              />
+              <span className="bw-member-status">{status}</span>
               <MemberMenu
                 participant={participant}
                 currentRoomId={room.id}

@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { placeLabel, placeOf, quizWinners } from "@/lib/challenges";
 import type { ChallengeResults } from "@/types/breakout";
 
@@ -22,11 +24,12 @@ export default function ChallengeLeaderboard({
 
   return (
     <ol className="bw-leaderboard">
-      {results.rooms.map((room) => {
+      {results.rooms.map((room, index) => {
         const showScore = ownRoomId === undefined || room.roomId === ownRoomId;
         return (
           <li
             key={room.roomId}
+            style={{ "--bw-i": index } as CSSProperties}
             className={winners.has(room.roomId) ? "bw-leaderboard__row bw-leaderboard__row--winner" : "bw-leaderboard__row"}
           >
             <span className="bw-leaderboard__place">{placeLabel(placeOf(results, room))}</span>

@@ -37,17 +37,30 @@ export const DRAFT_MEMBER_STATUS_LABEL: Record<ParticipantStatus, string> = {
   left: "planned · left meeting",
 };
 
-/** Avatar backgrounds for room members, by position. */
-export const AVATAR_TINTS = ["#eef1ff", "#c3faf5", "#fff4c4", "#fde0f0", "#e3f7d4"];
+/**
+ * Each person's pill colours: a light background with darker text of the same hue.
+ * Light backgrounds only, so initials read on every screen and over every tint.
+ */
+const PERSON_TINTS = [
+  { background: "#e0e7ff", color: "#4338ca" },
+  { background: "#ccfbf1", color: "#0f766e" },
+  { background: "#fce7f3", color: "#be185d" },
+  { background: "#ffedd5", color: "#c2410c" },
+  { background: "#dcfce7", color: "#15803d" },
+  { background: "#f3e8ff", color: "#7e22ce" },
+  { background: "#dbeafe", color: "#1d4ed8" },
+  { background: "#ffe4e6", color: "#be123c" },
+  { background: "#fef3c7", color: "#b45309" },
+] as const;
 
-/** Strong colours for a person's initials on a light room tint; white text reads on each. */
-export const PERSON_COLORS = ["#4f46e5", "#187574", "#be185d", "#c2410c", "#15803d", "#7e22ce", "#1d4ed8", "#9f1239"];
-
-/** One colour per person, the same on every question and screen: picked from their participantUUID. */
-export function personColor(participantUUID: string): string {
+/**
+ * One pill colour per person, picked from their participantUUID, so the same person has
+ * the same colour on every screen, for the host and for every participant.
+ */
+export function personTint(participantUUID: string): { background: string; color: string } {
   let hash = 0;
   for (const char of participantUUID) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return PERSON_COLORS[hash % PERSON_COLORS.length];
+  return PERSON_TINTS[hash % PERSON_TINTS.length];
 }
 
 /**
@@ -56,7 +69,8 @@ export function personColor(participantUUID: string): string {
  * it are kept, plus anyone webhooks report inside it whom the caller's copy of
  * the draft does not list yet: the host can place people mid-round, and the
  * caller only re-reads the draft when their own location changes.
- * Names come from the webhook-fed live store; the caller is "You".
+ * Names come from the webhook-fed live store; the caller is "You", with their own
+ * name kept in `fullName` for their initials.
  */
 export function roomMembers({
   room,
@@ -66,7 +80,7 @@ export function roomMembers({
   room: PlannedRoom;
   live: LiveState | null;
   participantUUID: string;
-}): { participantUUID: string; name: string }[] {
+}): { participantUUID: string; name: string; fullName: string }[] {
   const roomUUID = live?.round?.roomUUIDs[room.id] ?? null;
   const known = new Map((live?.participants ?? []).map((p) => [p.participantUUID, p]));
   const placedLater = (live?.participants ?? [])
@@ -74,8 +88,8 @@ export function roomMembers({
     .map((p) => p.participantUUID);
   return [...room.participantUUIDs, ...placedLater]
     .filter((uuid) => uuid === participantUUID || !roomUUID || known.get(uuid)?.location === roomUUID)
-    .map((uuid) => ({
-      participantUUID: uuid,
-      name: uuid === participantUUID ? "You" : known.get(uuid)?.name || "Participant",
-    }));
+    .map((uuid) => {
+      const fullName = known.get(uuid)?.name || "Participant";
+      return { participantUUID: uuid, name: uuid === participantUUID ? "You" : fullName, fullName };
+    });
 }

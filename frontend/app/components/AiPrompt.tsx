@@ -47,7 +47,7 @@ export default function AiPrompt({
           className="bw-ai-prompt__input"
           value={text}
           maxLength={2000}
-          placeholder="e.g. 45-min team retro, new groups each round"
+          placeholder="e.g. 45-min team retro"
           aria-label="Describe your session"
           readOnly={pending}
           onChange={(event) => setText(event.target.value)}
@@ -79,15 +79,17 @@ export default function AiPrompt({
   );
 }
 
-/** The host's AI prompts left today; amber from the last few. Hidden until the count is read. */
+/**
+ * The host's AI prompts left today; amber from the last few.
+ * A placeholder holds the line until the count is read, so nothing moves when it arrives.
+ */
 export function AiUsageNote({ promptsLeft }: { promptsLeft: number | null }) {
-  if (promptsLeft === null) return null;
-  const low = promptsLeft <= 5;
+  const low = promptsLeft !== null && promptsLeft <= 5;
   return (
     <p className={`bw-ai-usage${low ? " bw-ai-usage--low" : ""}`}>
       {promptsLeft === 0
         ? "No AI prompts left today. They reset at midnight UTC."
-        : `${promptsLeft} of ${AI_PROMPTS_PER_DAY} AI prompts left today`}
+        : `${promptsLeft ?? "–"} of ${AI_PROMPTS_PER_DAY} AI prompts left today`}
     </p>
   );
 }

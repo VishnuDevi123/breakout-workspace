@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { readSavedRoundPlan, saveRoundPlan, setRoundSkipped } from "@/lib/execution-api";
@@ -9,15 +9,16 @@ import { initialsFrom, type Participant } from "@/lib/participant-status";
 import { assignParticipantToRoom, newPlacements } from "@/lib/room-plan-assignments";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { copyRooms, groupsForLaunch } from "@/lib/room-plan-copy";
-import { settleForLaunch } from "@/lib/room-plan-assignments";
+import { settleForLaunch, shuffleEvenly } from "@/lib/room-plan-assignments";
 import { useLiveRoomController } from "@/lib/use-live-room-controller";
 import { useLiveState } from "@/lib/use-live-state";
-import { useRoomPlan } from "@/lib/use-room-plan";
+import { newRoom, useRoomPlan, withRoomCount } from "@/lib/use-room-plan";
 import { useRoundTasks } from "@/lib/use-round-tasks";
 import { useRoundSummaries } from "@/lib/use-round-summaries";
 import { useWorkflowLibrary } from "@/lib/use-workflow-library";
 import { roundLabel, useWorkspace } from "@/lib/use-workspace";
-import type { LiveState, RoundMeta, RoundPlanDraft, WorkflowSnapshot, Workspace, ZoomRole } from "@/types/breakout";
+import { useScreenSlide, type ScreenRank } from "@/lib/use-screen-slide";
+import type { LiveState, PlannedRoom, RoundMeta, RoundPlanDraft, WorkflowSnapshot, Workspace, ZoomRole } from "@/types/breakout";
 
 import LiveRound from "../LiveRound";
 import WorkflowLibrary from "../WorkflowLibrary";
@@ -61,7 +62,7 @@ function rosterFrom(live: LiveState | null): Participant[] {
 /** Shell for the one screen with nothing to edit yet: the workspace failed to load. */
 function HostShell({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <BrandMark />
         <div className="bw-round-heading">
@@ -135,6 +136,15 @@ export default function HostWorkspace({
     rounds.find(isPlanned) ??
     null;
 
+  /** Both launch paths (overview and live view) end here, so the round's new status is shown at once. */
+  function showLaunched(roundId: string, saved: Workspace | null) {
+    if (saved) workspace.applyWorkspace(saved);
+    // "Same" and "New groups" wrote this round's plan just before launch; show what launched.
+    reloadPlans();
+    setLaunchedRoundId(roundId);
+    setView("live");
+  }
+
   const controller = useLiveRoomController({
     parentUUID: meetingUUID,
     role,
@@ -148,13 +158,7 @@ export default function HostWorkspace({
     // Launching happens from saved drafts; the live view has no pending edits.
     flushSave: () => Promise.resolve(true),
     prepareLaunch: prepareGroupsForLaunch,
-    onLaunched: (roundId, saved) => {
-      if (saved) workspace.applyWorkspace(saved);
-      // "Same" and "New groups" wrote this round's plan just before launch; show what launched.
-      reloadPlans();
-      setLaunchedRoundId(roundId);
-      setView("live");
-    },
+    onLaunched: showLaunched,
     onClosed: (saved) => {
       if (saved) workspace.applyWorkspace(saved);
       if (!closedByTimer.current) return;
@@ -261,10 +265,17 @@ export default function HostWorkspace({
    * Move from the room page: Zoom asks the person to join the other room. The plan
    * is not written here; it follows once Zoom reports them there (backend followMove).
    */
-  async function moveInLiveRound(person: { participantUUID: string; name: string }, roomName: string) {
+  /** `roomName` null sends the person back to the main meeting. */
+  async function moveInLiveRound(person: { participantUUID: string; name: string }, roomName: string | null) {
+    const firstName = person.name.trim().split(/\s+/)[0] || person.name;
     try {
-      await controller.placeInOpenRooms([{ participantUUID: person.participantUUID, roomName }]);
-      toast.success(`${person.name} was asked to join ${roomName}.`);
+      if (roomName === null) {
+        await controller.sendBackToMain(person.participantUUID);
+        toast.success(`${firstName} moved to the main meeting.`);
+      } else {
+        await controller.placeInOpenRooms([{ participantUUID: person.participantUUID, roomName }]);
+        toast.success(`${firstName} moved to ${roomName}.`);
+      }
     } catch (error) {
       toast.error(`Could not move ${person.name}.`, {
         description: error instanceof Error ? error.message : undefined,
@@ -304,6 +315,74 @@ export default function HostWorkspace({
     const target = { parentUUID: meetingUUID, roundId, title: roundLabel(current, roundId) };
     const existing = await readSavedRoundPlan(meetingUUID, roundId).catch(() => null);
     await saveRoundPlan(meetingUUID, groupsForLaunch(source, target, present), existing?.revision ?? 0);
+  }
+
+  /**
+   * "I'll set up each round" between rounds: the next round has no rooms yet. It gets
+   * `count` empty rooms and launches as usual; the host places people from the live view.
+   */
+  async function launchNextWithRooms(count: number) {
+    if (!nextRound || workspace.state.kind !== "ready") return;
+    const current = workspace.state.workspace;
+    const roundId = nextRound.roundId;
+    await reportFailure("Could not set up the rooms.", async () => {
+      const rooms: PlannedRoom[] = [];
+      while (rooms.length < count) rooms.push(newRoom(rooms));
+      const draft: RoundPlanDraft = {
+        parentUUID: meetingUUID,
+        roundId,
+        title: roundLabel(current, roundId),
+        rooms,
+        stayInMainParticipantUUIDs: [],
+      };
+      // A round with no rooms may still have an empty saved plan; its revision is needed to replace it.
+      const saved = await readSavedRoundPlan(meetingUUID, roundId).catch(() => null);
+      await saveRoundPlan(meetingUUID, draft, saved?.revision ?? 0);
+      controller.launch(roundId);
+    });
+  }
+
+  /**
+   * Round settings on the live page: the round gets `count` rooms. "New groups"
+   * keeps the same rooms every round, so the rounds after it that have not run
+   * change too, and everyone here is dealt into them afresh. "Each round" changes
+   * this round only; people in a removed room go back to Not yet placed.
+   * "Same groups" copies the last round's groups at launch, so it never asks.
+   */
+  async function setRoomCount(roundId: string, count: number): Promise<boolean> {
+    if (workspace.state.kind !== "ready") return false;
+    const current = workspace.state.workspace;
+    if (current.samePeopleEveryRound) return false;
+    const index = current.rounds.findIndex((round) => round.roundId === roundId);
+    if (index < 0) return false;
+    const notRun = (round: RoundMeta) => round.status === "planned" || round.status === "skipped";
+    const targets = current.sameRoomsEveryRound
+      ? current.rounds.slice(index).filter(notRun)
+      : [current.rounds[index]].filter(notRun);
+    // The host and co-hosts are never placed in a room.
+    const attendees = (live.liveState?.participants ?? [])
+      .filter((p) => p.location !== "left" && p.role === "attendee")
+      .map((p) => p.participantUUID);
+
+    let saved = false;
+    await reportFailure("Could not change the rooms.", async () => {
+      for (const round of targets) {
+        // A round nobody set up has no saved plan yet.
+        const plan = await readSavedRoundPlan(meetingUUID, round.roundId).catch(() => null);
+        const draft: RoundPlanDraft = plan ?? {
+          parentUUID: meetingUUID,
+          roundId: round.roundId,
+          title: roundLabel(current, round.roundId),
+          rooms: [],
+          stayInMainParticipantUUIDs: [],
+        };
+        const sized = withRoomCount(draft, count);
+        await saveRoundPlan(meetingUUID, current.sameRoomsEveryRound ? shuffleEvenly(sized, attendees) : sized, plan?.revision ?? 0);
+      }
+      saved = true;
+    });
+    reloadPlans();
+    return saved;
   }
 
   /** Runs a live-page action and turns a failure into a toast; the caller's spinner then stops. */
@@ -374,6 +453,21 @@ export default function HostWorkspace({
     return start(() => workspace.replaceWith(snapshot), "rounds");
   }
 
+  // The screen on show, for the slide between screens. The Rooms and Tasks tabs of a
+  // round are one screen; their content fades instead.
+  const selectedId = workspace.selectedRound?.roundId ?? null;
+  const screen: { key: string; rank: ScreenRank } =
+    currentView === "landing" || workspace.state.kind === "missing"
+      ? { key: "landing", rank: [0, 0] }
+      : currentView === "live" && liveRoundId
+        ? { key: "live", rank: [3, 0] }
+        : currentView === "rounds" || !selectedId
+          ? { key: "rounds", rank: [1, 0] }
+          : { key: `round:${selectedId}`, rank: [2, rounds.findIndex((round) => round.roundId === selectedId)] };
+  // Ranks are [depth, round position]: going deeper (home, workflow, a round, live),
+  // or to a later round, slides forward.
+  const asScreen = useScreenSlide(screen);
+
   // On first open, wait for the live stream too: it decides between landing and
   // the live round, and landing first would flash before the jump.
   if (workspace.state.kind === "loading" || (view === "opening" && !live.liveState)) {
@@ -419,7 +513,7 @@ export default function HostWorkspace({
         onClose={() => setStrandedRooms(false)}
       />
     ) : null;
-    return (
+    return asScreen(
       <>
       {stranded}
       <LandingScreen
@@ -464,12 +558,12 @@ export default function HostWorkspace({
         onBuildRounds={buildRounds}
         onUse={startFrom}
       />
-      </>
+      </>,
     );
   }
   if (currentView === "live" && liveRoundId) {
     if (!livePlan || !live.liveState) return <LoadingScreen message="Opening the live round…" />;
-    return (
+    return asScreen(
       <LiveRound
         workspace={workspace.state.workspace}
         round={livePlan}
@@ -486,6 +580,8 @@ export default function HostWorkspace({
         }
         onEndRound={controller.close}
         onLaunchNext={() => nextRound && controller.launch(nextRound.roundId)}
+        onLaunchNextWithRooms={launchNextWithRooms}
+        onRoomCount={setRoomCount}
         onEndWorkflow={endWorkflow}
         onPlace={placeInLiveRound}
         onMove={moveInLiveRound}
@@ -497,11 +593,11 @@ export default function HostWorkspace({
         onDeleteRound={(roundId) =>
           reportFailure("Could not delete that round.", () => workspace.deleteRound(roundId))
         }
-      />
+      />,
     );
   }
   if (currentView === "rounds" || !workspace.selectedRound) {
-    return (
+    return asScreen(
       <RoundsOverview
         workspace={workspace.state.workspace}
         parentUUID={meetingUUID}
@@ -509,10 +605,7 @@ export default function HostWorkspace({
         onPlansChanged={reloadPlans}
         live={live.liveState}
         role={role}
-        onLaunched={(roundId) => {
-          setLaunchedRoundId(roundId);
-          setView("live");
-        }}
+        onLaunched={showLaunched}
         onHome={() => setView("landing")}
         onAddRound={async () => void (await workspace.addRound())}
         onDeleteRound={workspace.deleteRound}
@@ -529,12 +622,12 @@ export default function HostWorkspace({
           workspace.selectRound(roundId);
           setView("draft");
         }}
-      />
+      />,
     );
   }
 
   const selected = workspace.selectedRound;
-  return (
+  return asScreen(
     <RoundEditor
       // A new round starts fresh: its own short loading pause and fade-in.
       key={selected.roundId}
@@ -550,7 +643,7 @@ export default function HostWorkspace({
         workspace.selectRound(roundId);
         setView("draft");
       }}
-    />
+    />,
   );
 }
 

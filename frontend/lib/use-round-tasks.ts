@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError, readRoundTasks, saveRoundTasks } from "@/lib/execution-api";
-import type { Activity, RoomTask, RoundTasks } from "@/types/breakout";
+import { httpsLinks, toHttpsLink, type Activity, type RoomTask, type RoundTasks } from "@/types/breakout";
 
 const EMPTY_TASK: RoomTask = { goal: "", instructions: [], resources: [], checklist: [] };
 
@@ -12,6 +12,28 @@ const EMPTY_TASK: RoomTask = { goal: "", instructions: [], resources: [], checkl
 export function taskHasContent(task: RoomTask): boolean {
   const filled = (lines: string[]) => lines.some((line) => line.trim().length > 0);
   return Boolean(task.goal.trim()) || filled(task.instructions) || filled(task.resources) || task.checklist.length > 0;
+}
+
+/**
+ * The task as it is sent: lines trimmed, blank rows (working space while typing)
+ * dropped, resources made https links. Check `hasBadLinks` first: a line that is not
+ * a link is dropped here.
+ */
+export function tidyTask(task: RoomTask): RoomTask {
+  const lines = (list: string[]) => list.map((line) => line.trim()).filter(Boolean);
+  return {
+    ...task,
+    instructions: lines(task.instructions),
+    resources: httpsLinks(task.resources),
+    checklist: task.checklist
+      .map((item) => ({ ...item, label: item.label.trim() }))
+      .filter((item) => item.label),
+  };
+}
+
+/** True when a written resource line cannot be a web link. */
+export function hasBadLinks(task: RoomTask): boolean {
+  return task.resources.some((line) => line.trim() !== "" && toHttpsLink(line) === null);
 }
 
 type TaskEditorState = "loading" | "ready" | "saving" | "error";

@@ -18,7 +18,7 @@ export default function WaitingScreen({
         <main className="bw-main bw-participant-main">
           <SectionLabel>{label}</SectionLabel>
           <h2 className="bw-landing-title">{headline}</h2>
-          <p className="bw-landing-lede">{lede}</p>
+          <p className="bw-landing-lede bw-waiting-lede">{lede}</p>
           {children}
         </main>
       </div>

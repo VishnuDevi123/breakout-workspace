@@ -131,6 +131,14 @@ export async function assignToOpenRooms(
 }
 
 /**
+ * Sends someone in an open room back to the main meeting: Zoom's docs say an assign
+ * without a room id takes them out of their room.
+ */
+export async function sendToMainMeeting(sdk: ZoomSdk, participantUUID: string): Promise<void> {
+  await withZoomTimeout("Send to main meeting", sdk.assignParticipantToBreakoutRoom({ participantUUID }));
+}
+
+/**
  * Names the Zoom rooms webhooks could not: each person sits in a room whose webhook
  * uuid is their `location`, and Zoom's room list says which named room holds them.
  * Room names match the plan's, as at launch. Only the meeting owner's list carries people.
@@ -159,7 +167,8 @@ function meetingRole(role: string): MeetingRole {
 /**
  * Everyone Zoom reports in the meeting, or null when this caller cannot see them all.
  * With rooms open only the room list covers every room, and only the meeting
- * owner receives its people; a co-host gets empty rooms, which is not an empty meeting.
+ * owner receives its people; anyone else (a co-host, or a host who is not the owner)
+ * gets empty rooms, which is not an empty meeting.
  */
 export async function readMeetingRoster(
   sdk: ZoomSdk,
@@ -179,6 +188,8 @@ export async function readMeetingRoster(
     }));
   }
   if (!rooms.unassigned) return null;
+  // Open rooms that list nobody: this caller is not the owner. The main room alone is not the meeting.
+  if (!rooms.rooms.some((room) => (room.participants ?? []).length > 0)) return null;
   // The room list carries no roles; only the reader's own seat is known.
   const roleOf = (participantUUID: string): MeetingRole => (participantUUID === hostUUID ? "host" : "attendee");
 

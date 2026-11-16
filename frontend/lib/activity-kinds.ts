@@ -1,15 +1,16 @@
-import type { Activity, RoomResponsesView } from "@/types/breakout";
+import type { CSSProperties } from "react";
 
-/** Display text and tints per activity kind, shared by the host editor and (later) the room page. */
+import type { Activity, RoomResponsesHostView, RoomResponsesView } from "@/types/breakout";
+
+/** Display text per activity kind, and the swatch colour on the host's "Add another" buttons. */
 export const ACTIVITY_KINDS: Record<
   Activity["kind"],
-  { label: string; hint: string; tint: string; ink: string; titleLabel: string; titlePlaceholder: string }
+  { label: string; hint: string; tint: string; titleLabel: string; titlePlaceholder: string }
 > = {
   individual: {
     label: "Individual response",
     hint: "private",
     tint: "#fff4c4",
-    ink: "#746019",
     titleLabel: "Question",
     titlePlaceholder: "What should each person answer?",
   },
@@ -17,13 +18,12 @@ export const ACTIVITY_KINDS: Record<
     label: "Shared response",
     hint: "idea board",
     tint: "#c3faf5",
-    ink: "#187574",
     titleLabel: "Prompt for the board",
     titlePlaceholder: "What should the room add ideas about?",
   },
 };
 
-type ActivityProgress = "notStarted" | "working" | "completed";
+export type ActivityProgress = "notStarted" | "working" | "completed";
 
 export const PROGRESS_LABELS: Record<ActivityProgress, string> = {
   notStarted: "Not started",
@@ -65,6 +65,52 @@ export function memberStatus(
   const progress = activities.map((activity) => activityProgress(activity, view, participantUUID));
   if (progress.length > 0 && progress.every((step) => step === "completed")) return "Submitted";
   return progress.some((step) => step !== "notStarted") ? "Working" : "Not started";
+}
+
+/** How far a room is on one activity: the bar's share and the line beside it. */
+export interface RoomProgress {
+  done: number;
+  total: number;
+  text: string;
+}
+
+/**
+ * For the host: submitted answers, or people who added an idea, out of the room's people.
+ * `detailed` names the total on a board ("from 2 of 3 people"), for the activity's own page.
+ */
+export function roomProgress(
+  activity: Activity,
+  peopleCount: number,
+  results: RoomResponsesHostView | null,
+  detailed = false,
+): RoomProgress {
+  if (activity.kind === "individual") {
+    const answers = Object.values(results?.answers[activity.id] ?? {});
+    const submitted = answers.filter((answer) => answer.status === "submitted").length;
+    return { done: submitted, total: peopleCount, text: `${submitted} of ${peopleCount} submitted` };
+  }
+  const notes = results?.ideas[activity.id] ?? [];
+  const authors = new Set(notes.map((note) => note.participantUUID)).size;
+  const ideas = `${notes.length} ${notes.length === 1 ? "idea" : "ideas"}`;
+  const people = detailed
+    ? `${authors} of ${peopleCount} ${peopleCount === 1 ? "person" : "people"}`
+    : `${authors} ${authors === 1 ? "person" : "people"}`;
+  return { done: authors, total: peopleCount, text: `${ideas} from ${people}` };
+}
+
+/**
+ * A note as every screen shows it: a light tint of its hue on white, with a border in
+ * a stronger tint. Only ever lighter than the hue. Older notes may carry an alpha
+ * suffix ("#fccf0687"); the first six digits are the hue.
+ */
+export function noteTint(color: string): CSSProperties {
+  const hex = color.slice(0, 7);
+  return { background: `linear-gradient(${hex}47, ${hex}47), var(--bw-surface)`, borderColor: `${hex}99` };
+}
+
+/** A note being edited: its tint in `--bw-note-tint`, for a layer that fades out so the card turns white smoothly. */
+export function noteEditTint(color: string): CSSProperties {
+  return { "--bw-note-tint": `${color.slice(0, 7)}47` } as CSSProperties;
 }
 
 function assertNever(value: never): never {

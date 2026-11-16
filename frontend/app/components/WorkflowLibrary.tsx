@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatClock } from "@/lib/round-clock";
 import { ROUND_TEMPLATES, sampleSnapshot } from "@/lib/round-templates";
@@ -9,9 +9,6 @@ import type { PastWorkflow, SavedTemplate, WorkflowSnapshot } from "@/types/brea
 
 import SaveTemplateModal, { plural } from "./SaveTemplateModal";
 import { Button, ConfirmModal } from "./ui";
-
-/** Default title for a workflow started from a sample. */
-const SAMPLE_TITLE = "Sample Workflow";
 
 function roomCount(workflow: WorkflowSnapshot): number {
   return workflow.rounds.reduce((sum, round) => sum + round.roomNames.length, 0);
@@ -39,7 +36,7 @@ function LibraryRow({
   busy?: boolean;
 }) {
   return (
-    <div className="bw-card bw-library-row">
+    <div className={`bw-card bw-library-row${onOpen ? " bw-card-interactive" : ""}`}>
       <div className="bw-library-row__text">
         {onOpen ? (
           <button type="button" className="bw-library-row__title bw-card-open" disabled={busy} aria-label={`Use ${title}`} onClick={onOpen}>
@@ -91,6 +88,29 @@ export default function WorkflowLibrary({
   const [deleting, setDeleting] = useState<SavedTemplate | null>(null);
   const [tab, setTab] = useState<LibraryTab>("templates");
   const scrollReveal = useScrollReveal();
+  const slotRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // The box sits in a fixed slot, so the centred page above never moves with the tab.
+  // A longer list grows the box down into the free space under the slot, to the bottom
+  // of the scrolling page, and scrolls inside from there.
+  useEffect(() => {
+    const slot = slotRef.current;
+    const box = boxRef.current;
+    const page = slot?.closest(".bw-main");
+    if (!slot || !box || !(page instanceof HTMLElement)) return;
+    const fit = () => {
+      const top = slot.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop;
+      const bottom = page.clientHeight - parseFloat(getComputedStyle(page).paddingBottom);
+      box.style.maxHeight = `${Math.max(slot.offsetHeight, Math.floor(bottom - top))}px`;
+    };
+    // Fires once on observe, then whenever the window or anything above the slot changes size.
+    const observer = new ResizeObserver(fit);
+    observer.observe(page);
+    // The whole centred group: anything above the slot changing height moves the slot.
+    observer.observe(slot.closest(".bw-landing") ?? slot);
+    return () => observer.disconnect();
+  }, []);
   const tabs: { id: LibraryTab; label: string }[] = [
     { id: "templates", label: "Templates" },
     { id: "saved", label: tabLabel("Saved", templates.length) },
@@ -104,7 +124,8 @@ export default function WorkflowLibrary({
 
   return (
     <>
-      <div className="bw-library">
+      <div ref={slotRef} className="bw-library-slot">
+      <div ref={boxRef} className="bw-library">
         <div className="bw-tabs" role="tablist" aria-label="Workflow library">
           {tabs.map(({ id, label }) => (
             <button
@@ -121,7 +142,12 @@ export default function WorkflowLibrary({
         </div>
 
         {/* Keyed by tab so a new list starts at its top. */}
-        <div key={tab} className="bw-library-list" role="tabpanel" {...scrollReveal}>
+        <div
+          key={tab}
+          className={tab === "templates" ? "bw-library-list bw-library-list--grid" : "bw-library-list"}
+          role="tabpanel"
+          {...scrollReveal}
+        >
           {tab === "templates"
             ? ROUND_TEMPLATES.map((template) => (
                 <LibraryRow
@@ -129,7 +155,7 @@ export default function WorkflowLibrary({
                   title={template.name}
                   meta={`${plural(template.rounds.length, "round")} · ${formatClock(template.rounds.reduce((sum, round) => sum + round.durationSec, 0))}`}
                   busy={busy}
-                  onOpen={() => use(sampleSnapshot(template, SAMPLE_TITLE))}
+                  onOpen={() => use(sampleSnapshot(template))}
                 />
               ))
             : null}
@@ -179,6 +205,7 @@ export default function WorkflowLibrary({
               })
             : null}
         </div>
+      </div>
       </div>
 
       {saving ? (

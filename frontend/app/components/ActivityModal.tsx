@@ -3,8 +3,9 @@
 import { useState } from "react";
 
 import { ACTIVITY_KINDS } from "@/lib/activity-kinds";
-import type { Activity } from "@/types/breakout";
+import { MAX_ACTIVITY_DESCRIPTION_LENGTH, MAX_ACTIVITY_TITLE_LENGTH, type Activity } from "@/types/breakout";
 
+import GrowingField from "./GrowingField";
 import { Button, Modal, SectionLabel } from "./ui";
 
 /**
@@ -35,13 +36,12 @@ export default function ActivityModal({
   }
 
   return (
-    <Modal label={kind.label} locked={saving} onClose={onClose}>
+    // Tinted by kind, like the poll and quiz windows: yellow for individual, teal for shared.
+    <Modal label={kind.label} locked={saving} panelClassName={`bw-activity-panel bw-activity-panel--${activity.kind}`} onClose={onClose}>
       {(close) => (
         <>
           <header className="bw-overlay__header">
-            <span className="bw-activity-badge" style={{ background: kind.tint, color: kind.ink }}>
-              {kind.label}
-            </span>
+            <span className="bw-activity-panel__title">{kind.label}</span>
             <div className="bw-header-spacer" />
             <Button size="sm" disabled={!title.trim()} busy={saving} onClick={() => void done(close)}>
               Done
@@ -51,22 +51,31 @@ export default function ActivityModal({
           <div className="bw-overlay__body">
             <div className="bw-field">
               <SectionLabel>{kind.titleLabel}</SectionLabel>
-              <input
-                className="bw-goal-input"
+              {/* One line that wraps if long; Enter finishes it. Counter as in the description. */}
+              <GrowingField
+                className="bw-input bw-goal-input bw-activity-question"
                 value={title}
                 autoFocus
+                finishOnEnter
                 placeholder={kind.titlePlaceholder}
-                onChange={(event) => setTitle(event.target.value)}
+                ariaLabel={kind.titleLabel}
+                maxLength={MAX_ACTIVITY_TITLE_LENGTH}
+                onChange={setTitle}
+                onBlur={() => {}}
               />
             </div>
             <div className="bw-field">
               <SectionLabel>Additional Information</SectionLabel>
-              <textarea
-                className="bw-activity-description"
-                rows={4}
+              <GrowingField
+                className="bw-input bw-activity-description"
+                minRows={4}
+                grow={false}
                 value={description}
-                placeholder="Write any additional instructions here"
-                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Type any additional instructions here"
+                ariaLabel="Additional information"
+                maxLength={MAX_ACTIVITY_DESCRIPTION_LENGTH}
+                onChange={setDescription}
+                onBlur={() => {}}
               />
             </div>
           </div>

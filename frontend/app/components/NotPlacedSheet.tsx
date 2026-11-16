@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
-import { initialsFrom } from "@/lib/participant-status";
 import type { PlannedRoom } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
 import { Button, Spinner } from "./ui";
 
 /** Collapsed: the handle and the title row only. */
@@ -36,6 +36,7 @@ export default function NotPlacedSheet({
   stayingInMain = [],
   onKeepInMain,
   onReturn,
+  slide,
 }: {
   people: SheetPerson[];
   rooms: PlannedRoom[];
@@ -49,6 +50,8 @@ export default function NotPlacedSheet({
   onKeepInMain?: (participantUUID: string) => void;
   /** Planning only: moves someone kept in main back to the waiting list. */
   onReturn?: (participantUUID: string) => void;
+  /** Live only: the sheet slides in when shown, and out (then onClosed) while closing. */
+  slide?: { closing: boolean; onClosed: () => void };
 }) {
   const sheetRef = useRef<HTMLElement>(null);
   // Null: size to the content, capped by CSS at 40%.
@@ -120,8 +123,11 @@ export default function NotPlacedSheet({
   return (
     <section
       ref={sheetRef}
-      className="bw-sheet"
+      className={slide ? `bw-sheet bw-sheet--slide${slide.closing ? " bw-sheet--closing" : ""}` : "bw-sheet"}
       style={height === null ? undefined : { height, maxHeight: "none" }}
+      onAnimationEnd={(event) => {
+        if (slide?.closing && event.target === event.currentTarget) slide.onClosed();
+      }}
       aria-label="Not yet placed"
     >
       <div
@@ -160,7 +166,7 @@ export default function NotPlacedSheet({
         {people.map((person) => (
           <SheetRow key={person.participantUUID} person={person} busy={placing === person.participantUUID}>
             <select
-              className="bw-placement-select"
+              className="bw-input bw-placement-select"
               aria-label={`Room for ${person.name}`}
               value=""
               disabled={placing !== null}
@@ -171,7 +177,7 @@ export default function NotPlacedSheet({
               }}
             >
               <option value="" disabled>
-                Room…
+                Choose room
               </option>
               {rooms.map((room) => (
                 <option key={room.id} value={room.id}>
@@ -191,7 +197,7 @@ export default function NotPlacedSheet({
             {stayingInMain.map((person) => (
               <SheetRow key={person.participantUUID} person={person} busy={false}>
                 <select
-                  className="bw-placement-select"
+                  className="bw-input bw-placement-select"
                   aria-label={`Room for ${person.name}`}
                   value=""
                   onChange={(event) => {
@@ -223,9 +229,7 @@ export default function NotPlacedSheet({
 function SheetRow({ person, busy, children }: { person: SheetPerson; busy: boolean; children: ReactNode }) {
   return (
     <li className="bw-sheet__person">
-      <span className="bw-initials" title={person.name} aria-hidden>
-        {initialsFrom(person.name)}
-      </span>
+      <PersonPill participantUUID={person.participantUUID} name={person.name} className="bw-initials" />
       <span className="bw-sheet__name" title={person.name}>
         {person.name}
       </span>

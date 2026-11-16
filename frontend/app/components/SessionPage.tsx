@@ -3,12 +3,15 @@
 import { useState, type ReactNode } from "react";
 
 import { formatClock } from "@/lib/round-clock";
-import { taskHasContent, type useRoundTasks } from "@/lib/use-round-tasks";
+import { taskHasContent, useRoundTasks } from "@/lib/use-round-tasks";
 import { roundLabel } from "@/lib/use-workspace";
-import type { RoundMeta, RoundPlan, Workspace } from "@/types/breakout";
+import type { RoomTask, RoundMeta, RoundPlan, Workspace } from "@/types/breakout";
 
 import ActivityList from "./ActivityList";
+import EditTaskModal from "./EditTaskModal";
+import RoundPages from "./RoundPages";
 import RoundSettingsModal from "./RoundSettingsModal";
+import { groupingOf } from "./screens/RoundsOverview";
 import { Button, Card, ConfirmModal, Pill, SectionLabel } from "./ui";
 
 type RoundPatch = Partial<Pick<RoundMeta, "title" | "durationSec">>;
@@ -16,6 +19,7 @@ type RoundPatch = Partial<Pick<RoundMeta, "title" | "durationSec">>;
 /**
  * The live round's second page: what the running round asks of the rooms, and
  * the rounds still to come. Only rounds that have not run can be changed here.
+ * Once the round closes, the next round's task and activities take its place.
  * Every handler reports its own errors.
  */
 export default function SessionPage({
@@ -23,12 +27,15 @@ export default function SessionPage({
   plans,
   tasks,
   open,
+  nextRound,
   canEditRounds,
   onEditTask,
   onAddRound,
   onUpdateRound,
   onDeleteRound,
   onSkipRound,
+  onRoomCount,
+  zoomBusy,
   challenges,
 }: {
   workspace: Workspace;
@@ -36,6 +43,8 @@ export default function SessionPage({
   tasks: ReturnType<typeof useRoundTasks>;
   /** Whether the round is still running; activities can only change while it is. */
   open: boolean;
+  /** The round the host launches next; null when every round has run. */
+  nextRound: RoundMeta | null;
   /** Host only. A co-host edits the running round's task and activities, not the rounds. */
   canEditRounds: boolean;
   onEditTask: () => void;
@@ -43,6 +52,10 @@ export default function SessionPage({
   onUpdateRound: (roundId: string, patch: RoundPatch) => Promise<void>;
   onDeleteRound: (roundId: string) => Promise<void>;
   onSkipRound: (roundId: string, skipped: boolean) => Promise<void>;
+  /** Resolves false when the change was not saved; reports its own errors. */
+  onRoomCount: (roundId: string, count: number) => Promise<boolean>;
+  /** A Zoom launch or close is running; rooms cannot change until it ends. */
+  zoomBusy: boolean;
   /** The poll and quiz cards; null when the round is closed and none ran. */
   challenges: ReactNode;
 }) {
@@ -51,7 +64,10 @@ export default function SessionPage({
   const [adding, setAdding] = useState(false);
   const positionOf = (roundId: string) => workspace.rounds.findIndex((round) => round.roundId === roundId) + 1;
   const settingsRound = workspace.rounds.find((round) => round.roundId === settingsFor) ?? null;
-  const hasTask = taskHasContent(tasks.task);
+  // The round that matters now: the live one, or the next to launch between rounds.
+  const currentId =
+    workspace.rounds.find((round) => round.status === "launched")?.roundId ?? nextRound?.roundId ?? null;
+  const currentIndex = workspace.rounds.findIndex((round) => round.roundId === currentId);
 
   async function addRound() {
     setAdding(true);
@@ -63,54 +79,60 @@ export default function SessionPage({
     <div className="bw-session">
       <section className="bw-session__column">
         <SectionLabel>Current Workflow</SectionLabel>
-        {workspace.rounds.map((round) => (
-          <RoundCard
-            key={round.roundId}
-            round={round}
-            label={roundLabel(workspace, round.roundId)}
-            editable={canEditRounds}
-            onSettings={() => setSettingsFor(round.roundId)}
-            onDelete={() => setDeletingId(round.roundId)}
-          />
-        ))}
-        {canEditRounds ? (
-          <Button
-            variant="secondary"
-            busy={adding}
-            onClick={() => void addRound()}
-          >
-            + Add round
-          </Button>
-        ) : null}
+        <RoundPages
+          className="bw-session-rounds"
+          currentIndex={currentIndex === -1 ? null : currentIndex}
+          items={workspace.rounds.map((round) => ({
+            key: round.roundId,
+            node: (
+              <RoundCard
+                round={round}
+                label={roundLabel(workspace, round.roundId)}
+                editable={canEditRounds}
+                onSettings={() => setSettingsFor(round.roundId)}
+                onDelete={() => setDeletingId(round.roundId)}
+              />
+            ),
+          }))}
+          footer={
+            canEditRounds ? (
+              <Button
+                variant="secondary"
+                className="bw-session-rounds__add"
+                busy={adding}
+                onClick={() => void addRound()}
+              >
+                + Add round
+              </Button>
+            ) : null
+          }
+        />
       </section>
 
       <section className="bw-session__column">
-        <SectionLabel>This round</SectionLabel>
-        <button
-          className="bw-task-summary"
-          disabled={!open}
-          onClick={onEditTask}
-        >
-          <span className="bw-task-summary__goal">
-            {tasks.task.goal || (hasTask ? "Task without a goal" : "No task set for this round")}
-          </span>
-          <span className="bw-task-summary__action">
-            {hasTask ? "Edit task" : "Add a task"}
-          </span>
-        </button>
-        {challenges ? (
+        {/* Same order open or closed: task, polls and quizzes, then activities. */}
+        {!open && nextRound ? (
+          <NextRoundTasks
+            parentUUID={workspace.parentUUID}
+            round={nextRound}
+            label={roundLabel(workspace, nextRound.roundId)}
+            challenges={challenges}
+          />
+        ) : (
           <>
+            <SectionLabel>This round</SectionLabel>
+            <TaskSummary task={tasks.task} editable={open} onEdit={onEditTask} />
             <SectionLabel>Polls and quizzes</SectionLabel>
             {challenges}
+            {open ? (
+              <ActivityList
+                activities={tasks.activities}
+                live
+                onSave={tasks.saveActivities}
+              />
+            ) : null}
           </>
-        ) : null}
-        {open ? (
-          <ActivityList
-            activities={tasks.activities}
-            live
-            onSave={tasks.saveActivities}
-          />
-        ) : null}
+        )}
       </section>
 
       {settingsRound ? (
@@ -118,8 +140,11 @@ export default function SessionPage({
           round={settingsRound}
           position={positionOf(settingsRound.roundId)}
           plan={plans[settingsRound.roundId] ?? null}
+          grouping={groupingOf(workspace)}
+          zoomBusy={zoomBusy}
           onUpdateRound={onUpdateRound}
           onSkipRound={onSkipRound}
+          onRoomCount={(count) => onRoomCount(settingsRound.roundId, count)}
           onClose={() => setSettingsFor(null)}
         />
       ) : null}
@@ -134,6 +159,47 @@ export default function SessionPage({
         />
       ) : null}
     </div>
+  );
+}
+
+/** The task's goal and, while it can be changed, the action that opens the editor. */
+function TaskSummary({ task, editable, onEdit }: { task: RoomTask; editable: boolean; onEdit: () => void }) {
+  const hasTask = taskHasContent(task);
+  return (
+    <button className="bw-task-summary bw-card-interactive" disabled={!editable} onClick={onEdit}>
+      <span className="bw-task-summary__goal">
+        {task.goal || (hasTask ? "Task without a goal" : "No task set yet")}
+      </span>
+      {editable ? <span className="bw-task-summary__action">{hasTask ? "Edit task" : "Add a task"}</span> : null}
+    </button>
+  );
+}
+
+/** Between rounds: the next round's task and activities, to prepare before its launch. */
+function NextRoundTasks({
+  parentUUID,
+  round,
+  label,
+  challenges,
+}: {
+  parentUUID: string;
+  round: RoundMeta;
+  label: string;
+  /** Kept between the task and the activities, where it sits while a round runs. */
+  challenges: ReactNode;
+}) {
+  const tasks = useRoundTasks(parentUUID, round.roundId);
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <>
+      <SectionLabel>Next round · {label}</SectionLabel>
+      <TaskSummary task={tasks.task} editable={tasks.state !== "loading"} onEdit={() => setEditing(true)} />
+      <SectionLabel>Polls and quizzes</SectionLabel>
+      {challenges}
+      <ActivityList activities={tasks.activities} live={false} onSave={tasks.saveActivities} />
+      {editing ? <EditTaskModal roundTitle={label} tasks={tasks} onClose={() => setEditing(false)} /> : null}
+    </>
   );
 }
 

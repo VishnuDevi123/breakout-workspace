@@ -12,6 +12,7 @@ import {
   launchRoundInZoom,
   readMeetingRoster,
   readRoomLinks,
+  sendToMainMeeting,
 } from "@/lib/launch-round";
 import { configureZoomSdk, type ZoomSdk } from "@/lib/zoom-sdk";
 import type { RoundPlanDraft, Workspace, ZoomRole } from "@/types/breakout";
@@ -215,8 +216,10 @@ export function useLiveRoomController(input: ControllerInput) {
       try {
         const { sdk, hostUUID } = await hostSdk();
         const roster = await readMeetingRoster(sdk, input.round, hostUUID);
+        // null: this host cannot see every room (not the meeting owner). The backend takes a
+        // roster as the whole meeting, so a partial or empty one is never sent.
         if (!roster || roster.length === 0) {
-          console.warn("Roster: Zoom returned no participants list; nothing sent.");
+          console.warn("Roster: Zoom did not return the whole meeting; nothing sent.");
           return;
         }
         await postRoster(input.parentUUID, roster);
@@ -231,6 +234,11 @@ export function useLiveRoomController(input: ControllerInput) {
   async function placeInOpenRooms(placements: { participantUUID: string; roomName: string }[]) {
     const { sdk } = await hostSdk();
     await assignToOpenRooms(sdk, placements);
+  }
+
+  async function sendBackToMain(participantUUID: string) {
+    const { sdk } = await hostSdk();
+    await sendToMainMeeting(sdk, participantUUID);
   }
 
   /**
@@ -252,5 +260,5 @@ export function useLiveRoomController(input: ControllerInput) {
     })();
   }
 
-  return { operation, launch, close, recordLaunch, roomsOpenInZoom, reconcile, syncRoster, placeInOpenRooms, linkUnknownRooms };
+  return { operation, launch, close, recordLaunch, roomsOpenInZoom, reconcile, syncRoster, placeInOpenRooms, sendBackToMain, linkUnknownRooms };
 }

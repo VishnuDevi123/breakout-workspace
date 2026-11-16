@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { personColor, PERSON_COLORS, roleSuffix, roomMembers } from "../lib/participant-status.ts";
+import { personTint, roleSuffix, roomMembers } from "../lib/participant-status.ts";
 import type { LiveParticipant, LiveState, PlannedRoom } from "../types/breakout.ts";
 
 const room: PlannedRoom = { id: "room-a", name: "Room 1", dot: "#fcb900", participantUUIDs: ["me", "ann", "bo"] };
@@ -52,7 +52,10 @@ test("role suffix names host and co-host only", () => {
   assert.equal(roleSuffix("attendee"), "");
 });
 
-test("a person keeps one colour, picked from the palette", () => {
-  assert.equal(personColor("abc-123"), personColor("abc-123"));
-  assert.ok(PERSON_COLORS.includes(personColor("someone-else")));
+test("a person keeps one light colour on every screen", () => {
+  assert.deepEqual(personTint("abc-123"), personTint("abc-123"));
+  const { background } = personTint("someone-else");
+  // Light: every channel of the background is high.
+  const channels = [1, 3, 5].map((at) => parseInt(background.slice(at, at + 2), 16));
+  assert.ok(channels.every((channel) => channel >= 0xc0), background);
 });

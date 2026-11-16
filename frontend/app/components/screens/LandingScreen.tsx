@@ -117,7 +117,7 @@ export default function LandingScreen({
                 <div className="bw-landing-divider">or build it yourself</div>
 
                 {workflow ? (
-                  <button type="button" className="bw-draft-card" disabled={busy} onClick={onBuildRounds}>
+                  <button type="button" className="bw-draft-card bw-card-interactive" disabled={busy} onClick={onBuildRounds}>
                     <span className="bw-draft-card__icon" aria-hidden="true">✎</span>
                     <span className="bw-draft-card__text">
                       <span className="bw-draft-card__label">Continue draft</span>

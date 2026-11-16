@@ -1,6 +1,10 @@
 "use client";
 
-import type { useRoundTasks } from "@/lib/use-round-tasks";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { hasBadLinks, tidyTask, type useRoundTasks } from "@/lib/use-round-tasks";
+import type { RoomTask } from "@/types/breakout";
 
 import TaskFields from "./TaskFields";
 import { Button, Modal } from "./ui";
@@ -10,10 +14,12 @@ import { Button, Modal } from "./ui";
  *
  * The full task page is deliberately not reused here: its back and next buttons
  * lead into other rounds' drafts, which a host must not edit while a round is
- * running. This panel has one way out, and it saves on the way.
+ * running.
  *
- * The task itself is owned by the live screen, so the rail's summary and this
- * panel always show the same thing.
+ * Edits stay in this panel until Done sends them, so the rooms get one finished
+ * task, not every keystroke. While there are unsent edits, Escape and a click
+ * outside do nothing: Done sends them, and Discard, at the other end of the panel
+ * so neither is pressed by mistake, drops them.
  */
 export default function EditTaskModal({
   roundTitle,
@@ -24,16 +30,51 @@ export default function EditTaskModal({
   tasks: ReturnType<typeof useRoundTasks>;
   onClose: () => void;
 }) {
-  const { task, setTask, state, save } = tasks;
+  const [draft, setDraft] = useState<RoomTask | null>(null);
+  const [sending, setSending] = useState(false);
+  // Set once the edits are sent or discarded, so the close that follows is let through.
+  const settled = useRef(false);
+  const shown = draft ?? tasks.task;
+  // A line that is not a link counts as unsent too: tidying would drop it unseen.
+  const unsent =
+    draft !== null && (hasBadLinks(draft) || JSON.stringify(tidyTask(draft)) !== JSON.stringify(tidyTask(tasks.task)));
 
-  /** The hook reports a failure; the panel then stays open so the edit is not lost. */
-  async function saveBeforeClose() {
-    if (state === "loading") return false;
-    return save(task);
+  /** Sends the edits; a failed send is reported by the hook and leaves the panel open. */
+  async function done(close: () => void) {
+    if (!unsent) return close();
+    if (hasBadLinks(shown)) {
+      toast.error("A resource is not a web link.", {
+        description: "Fix it or remove it, then press Done again.",
+      });
+      return;
+    }
+    setSending(true);
+    const next = tidyTask(shown);
+    const saved = await tasks.save(next);
+    setSending(false);
+    if (!saved) return;
+    tasks.setTask(next);
+    settled.current = true;
+    toast.success("Task sent to every room.", {
+      description: "Participants now see the new goal, steps, checklist and links.",
+    });
+    close();
+  }
+
+  function discard(close: () => void) {
+    settled.current = true;
+    close();
   }
 
   return (
-    <Modal label={`Task for ${roundTitle}`} beforeClose={saveBeforeClose} onClose={onClose}>
+    <Modal
+      label={`Task for ${roundTitle}`}
+      placement="top"
+      panelClassName="bw-task-panel"
+      locked={sending}
+      beforeClose={async () => settled.current || !unsent}
+      onClose={onClose}
+    >
       {(close) => (
         <>
           <header className="bw-overlay__header">
@@ -41,18 +82,32 @@ export default function EditTaskModal({
               <span className="bw-modal-title">Task - {roundTitle}</span>
             </div>
             <div className="bw-header-spacer" />
-            <Button variant="secondary" size="sm" onClick={close}>
+            <Button size="sm" busy={sending} disabled={tasks.state === "loading"} onClick={() => void done(close)}>
               Done
             </Button>
           </header>
 
           <div className="bw-overlay__body">
-            {state === "loading" ? (
+            {tasks.state === "loading" ? (
               <span style={{ fontSize: "var(--bw-fs-meta)", color: "var(--bw-muted-2)" }}>Loading the task…</span>
             ) : (
-              <TaskFields task={task} setTask={setTask} save={(next) => void save(next)} />
+              // Nothing saves while typing: Done sends the whole task at once.
+              <TaskFields task={shown} setTask={setDraft} save={() => {}} />
             )}
           </div>
+
+          {/* Always there, so the panel does not grow when the first edit is made. */}
+          <footer className="bw-overlay__footer">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="bw-button--danger-text"
+              disabled={!unsent || sending}
+              onClick={() => discard(close)}
+            >
+              Discard changes
+            </Button>
+          </footer>
         </>
       )}
     </Modal>

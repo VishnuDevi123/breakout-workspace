@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
+import { noteEditTint } from "@/lib/activity-kinds";
 import type { useRoomResponses } from "@/lib/use-room-responses";
-import type { CheckListItem, IdeaBoardActivity, IdeaNote } from "@/types/breakout";
+import { MAX_IDEA_LENGTH, type CheckListItem, type IdeaBoardActivity, type IdeaNote } from "@/types/breakout";
 
-import ActivityPrompt from "./ActivityPrompt";
+import IdeaCard from "./IdeaCard";
 import RoomPeople from "./RoomPeople";
 import SharedChecklist from "./SharedChecklist";
-import { Button } from "./ui";
+import { Button, SectionLabel } from "./ui";
+
 
 /**
- * The room's shared board: everyone's sticky notes, oldest first, and a card to
- * add another. Only a note's author can edit or remove it. "← All activities"
- * sits above the question; the right column shows who has added ideas, then the
- * task's shared checklist.
+ * The room's shared board: "← All activities", the prompt in a card tinted like the
+ * activity, the box to add an idea, then everyone's notes newest first, with an
+ * All / Mine filter. Only a note's author can edit or remove it. The right column
+ * shows how many ideas each person has added, then the task's shared checklist.
  */
 export default function IdeaBoardPanel({
   activity,
@@ -25,27 +27,22 @@ export default function IdeaBoardPanel({
   onBack,
 }: {
   activity: IdeaBoardActivity;
-  members: { participantUUID: string; name: string }[];
+  members: { participantUUID: string; name: string; fullName?: string }[];
   participantUUID: string;
   checklist: CheckListItem[];
   responses: ReturnType<typeof useRoomResponses>;
   onBack: () => void;
 }) {
   const { view, addIdea, editIdea, removeIdea, setTick } = responses;
-  const [newIdea, setNewIdea] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [onlyMine, setOnlyMine] = useState(false);
   const notes = view?.ideas[activity.id] ?? [];
+  // Notes are stored oldest first; the newest leads here.
+  const shown = [...notes].reverse().filter((note) => !onlyMine || note.participantUUID === participantUUID);
   // A board counts as done for someone once they have added a note.
   const people = members.map((member) => {
     const count = notes.filter((note) => note.participantUUID === member.participantUUID).length;
-    return { ...member, status: count > 0 ? `${count} ${count === 1 ? "idea" : "ideas"}` : "No ideas yet", done: count > 0 };
+    return { ...member, status: count > 0 ? `${count} ${count === 1 ? "idea" : "ideas"}` : "No ideas yet", tone: count > 0 ? "done" : "idle" } as const;
   });
-
-  async function add() {
-    setAdding(true);
-    if (await addIdea(activity.id, newIdea)) setNewIdea("");
-    setAdding(false);
-  }
 
   return (
     <>
@@ -54,10 +51,32 @@ export default function IdeaBoardPanel({
         <button type="button" className="bw-results__back" onClick={onBack}>
           ← All activities
         </button>
-        <ActivityPrompt activity={activity} />
+        <header className="bw-board__prompt">
+          <span className="bw-board__kind">Shared response · idea board</span>
+          <h2 className="bw-board__question">{activity.title}</h2>
+          {activity.description ? <p className="bw-board__details">{activity.description}</p> : null}
+        </header>
 
-        <div className="bw-board">
-          {notes.map((note) => (
+        <AddIdea onAdd={(text) => addIdea(activity.id, text)} />
+
+        <div className="bw-board__head">
+          <SectionLabel>Ideas</SectionLabel>
+          <span className="bw-activity-count">{notes.length}</span>
+          <div className="bw-segmented" role="group" aria-label="Which ideas to show">
+            <button type="button" className="bw-segmented__option" aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>
+              All
+            </button>
+            <button type="button" className="bw-segmented__option" aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>
+              Mine
+            </button>
+          </div>
+        </div>
+
+        {shown.length === 0 ? (
+          <p className="bw-act-list__empty">{onlyMine ? "You have not added an idea yet." : "No ideas yet. Add the first one."}</p>
+        ) : null}
+        <div className="bw-ideas">
+          {shown.map((note) => (
             <NoteCard
               key={note.id}
               note={note}
@@ -68,28 +87,78 @@ export default function IdeaBoardPanel({
           ))}
         </div>
 
-        {/* Pinned to the bottom left of the main column, below however many notes there are. */}
-        <div className="bw-board__add">
-          <input
-            className="bw-board__input"
-            value={newIdea}
-            placeholder="Add another idea…"
-            onChange={(event) => setNewIdea(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && newIdea.trim() && !adding) void add();
-            }}
-          />
-          <Button size="sm" disabled={!newIdea.trim() || adding} onClick={() => void add()}>
-            Add
-          </Button>
-        </div>
       </section>
 
-      <div className="bw-session__column">
-        <RoomPeople heading="Working on this board" people={people} />
-        <SharedChecklist items={checklist} view={view} onTick={(itemId, done) => void setTick(itemId, done)} />
+      <div className="bw-session__column bw-room-layout__side">
+        <RoomPeople heading="Working on this board" people={people} selfUUID={participantUUID} />
+        <SharedChecklist title="Checklist" items={checklist} ticks={view?.ticks} onTick={(itemId, done) => void setTick(itemId, done)} />
       </div>
     </>
+  );
+}
+
+/**
+ * The box to add an idea, above the notes: it grows with the text, Enter adds,
+ * Shift + Enter starts a new line. The text stays if the add fails.
+ */
+function AddIdea({ onAdd }: { onAdd: (text: string) => Promise<boolean> }) {
+  const [text, setText] = useState("");
+  const [adding, setAdding] = useState(false);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  // One line to start, taller as the idea wraps; measured again when the box narrows or widens.
+  useLayoutEffect(() => {
+    const box = field.current;
+    if (!box) return;
+    const fit = () => {
+      box.style.height = "auto";
+      box.style.height = `${box.scrollHeight}px`;
+    };
+    fit();
+    let width = box.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (box.clientWidth === width) return;
+      width = box.clientWidth;
+      fit();
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [text]);
+
+  async function add() {
+    if (!text.trim() || adding) return;
+    setAdding(true);
+    if (await onAdd(text.trim())) setText("");
+    setAdding(false);
+    field.current?.focus();
+  }
+
+  return (
+    <div className="bw-board__new">
+      <div className="bw-input bw-input--within bw-board__add">
+        <textarea
+          ref={field}
+          className="bw-board__field"
+          rows={1}
+          value={text}
+          maxLength={MAX_IDEA_LENGTH}
+          placeholder="Add an idea…"
+          aria-label="New idea"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            void add();
+          }}
+        />
+        <span className="bw-board__count">
+          {text.length} / {MAX_IDEA_LENGTH}
+        </span>
+        <Button size="sm" disabled={!text.trim()} busy={adding} onClick={() => void add()}>
+          Add idea
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -107,69 +176,81 @@ function NoteCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [title, setTitle] = useState(note.title);
   const [description, setDescription] = useState(note.description);
+  const [saving, setSaving] = useState(false);
 
+  // Only the idea's text is edited; its title stays as it is.
   async function save() {
-    if (await onSave(title.trim(), description.trim())) setEditing(false);
+    if (!description.trim() || saving) return;
+    setSaving(true);
+    if (await onSave(note.title, description.trim())) setEditing(false);
+    setSaving(false);
   }
 
   if (editing) {
     return (
-      <div className="bw-note" style={{ background: note.color }}>
-        <input className="bw-note__title-input" value={title} onChange={(event) => setTitle(event.target.value)} />
+      // The note itself becomes the text box: white, an accent edge, the text in place.
+      <div className="bw-idea bw-idea--editing" style={noteEditTint(note.color)}>
         <textarea
-          className="bw-note__text-input"
-          rows={4}
+          className="bw-idea__edit"
+          aria-label="Edit idea"
+          autoFocus
+          maxLength={MAX_IDEA_LENGTH}
           value={description}
+          onFocus={(event) => event.currentTarget.setSelectionRange(description.length, description.length)}
           onChange={(event) => setDescription(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setEditing(false);
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            void save();
+          }}
         />
-        <div className="bw-note__footer">
-          <div style={{ flex: 1 }} />
-          <button className="bw-note__action" onClick={() => setEditing(false)}>Cancel</button>
-          <button
-            className="bw-note__action bw-note__action--strong"
-            disabled={!title.trim() || !description.trim()}
-            onClick={() => void save()}
-          >
+        <div className="bw-idea__edit-actions">
+          <Button size="sm" disabled={!description.trim()} busy={saving} onClick={() => void save()}>
             Save
-          </button>
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bw-note" style={{ background: note.color }}>
-      <span className="bw-note__title">{note.title}</span>
-      <p className="bw-note__text">{note.description}</p>
-      <div className="bw-note__footer">
-        <span className="bw-note__author">{own ? "You" : note.authorName}</span>
-        <div style={{ flex: 1 }} />
-        {own && confirming ? (
-          <>
-            <button className="bw-note__action" onClick={() => setConfirming(false)}>Keep</button>
-            <button className="bw-note__action bw-note__action--danger" onClick={() => void onRemove()}>
-              Remove?
-            </button>
-          </>
-        ) : null}
-        {own && !confirming ? (
-          <>
-            <button
-              className="bw-note__action"
-              onClick={() => {
-                setTitle(note.title);
-                setDescription(note.description);
-                setEditing(true);
-              }}
-            >
-              Edit
-            </button>
-            <button className="bw-note__action" onClick={() => setConfirming(true)}>Remove</button>
-          </>
-        ) : null}
-      </div>
-    </div>
+    <IdeaCard
+      note={note}
+      authorLabel={own ? "You" : undefined}
+      actions={
+        own ? (
+          confirming ? (
+            <>
+              <button className="bw-note__action" onClick={() => setConfirming(false)}>
+                Keep
+              </button>
+              <button className="bw-note__action bw-note__action--danger" onClick={() => void onRemove()}>
+                Remove?
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="bw-note__action"
+                onClick={() => {
+                  setDescription(note.description);
+                  setEditing(true);
+                }}
+              >
+                Edit
+              </button>
+              <button className="bw-note__action" onClick={() => setConfirming(true)}>
+                Remove
+              </button>
+            </>
+          )
+        ) : null
+      }
+    />
   );
 }
