@@ -96,8 +96,10 @@ router.post("/close", hostOnly, async (_req, res) => {
   const parentUUID = res.locals.caller.meetingUUID;
   const roundId = (await getLive(parentUUID)).round?.roundId;
   if (roundId) await revealRoundChallenges(parentUUID, roundId);
-  const state = await markClosedRound(parentUUID);
+  // Saved before the live update goes out: participants read the workspace for
+  // "Earlier rounds" as soon as the round ends, and must find this one closed.
   if (roundId) await markRoundStatus(parentUUID, roundId, "closed");
+  const state = await markClosedRound(parentUUID);
   const body: ApiResponse<LiveActionResponse> = {
     success: true,
     data: { live: state, workspace: await getWorkspace(parentUUID) ?? null },
