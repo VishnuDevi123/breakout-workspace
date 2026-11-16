@@ -38,8 +38,9 @@ export default function TaskDetails({
       {task && task.resources.length > 0 ? (
         <>
           <SectionLabel>Resources from the host</SectionLabel>
-          {task.resources.map((resource) => (
-            <ResourceRow key={resource} resource={resource} />
+          {/* By position too: a task saved before links were checked may repeat one. */}
+          {task.resources.map((resource, index) => (
+            <ResourceRow key={`${index}:${resource}`} resource={resource} />
           ))}
         </>
       ) : null}

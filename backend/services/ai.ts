@@ -4,9 +4,17 @@ import { z } from "zod";
 
 import {
   AI_PROMPTS_PER_DAY,
+  MAX_ACTIVITY_DESCRIPTION_LENGTH,
+  MAX_ACTIVITY_TITLE_LENGTH,
   MAX_AI_MESSAGES,
   MAX_ROOMS,
+  MAX_CHECKLIST_ITEM_LENGTH,
+  MAX_CHECKLIST_ITEMS,
+  MAX_TASK_GOAL_LENGTH,
+  MAX_TASK_STEP_LENGTH,
+  MAX_TASK_STEPS,
   MAX_TASK_TEXT_LENGTH,
+  httpsLinks,
   type AiChatMessage,
   type AiUsage,
   type DraftWorkflowRequest,
@@ -35,15 +43,15 @@ function client(): OpenAI {
 // them) and with minutes instead of seconds. Limits copy the store validators.
 const ActivityDraft = z.object({
   kind: z.enum(["individual", "ideaBoard"]),
-  title: z.string().min(1).max(500),
-  description: z.string().max(2000),
+  title: z.string().min(1).max(MAX_ACTIVITY_TITLE_LENGTH),
+  description: z.string().max(MAX_ACTIVITY_DESCRIPTION_LENGTH),
 });
 
 const TaskDraft = z.object({
-  goal: z.string().min(1).max(MAX_TASK_TEXT_LENGTH),
-  instructions: z.array(z.string().max(MAX_TASK_TEXT_LENGTH)).max(20),
+  goal: z.string().min(1).max(MAX_TASK_GOAL_LENGTH),
+  instructions: z.array(z.string().max(MAX_TASK_STEP_LENGTH)).max(MAX_TASK_STEPS),
   resources: z.array(z.string().max(MAX_TASK_TEXT_LENGTH)).max(20),
-  checklist: z.array(z.string().min(1).max(MAX_TASK_TEXT_LENGTH)).max(6),
+  checklist: z.array(z.string().min(1).max(MAX_CHECKLIST_ITEM_LENGTH)).max(MAX_CHECKLIST_ITEMS),
 });
 
 const RoundDraft = z.object({
@@ -88,7 +96,7 @@ const SYSTEM_PROMPT = `You design breakout-room workflows for a Zoom meeting hos
 A workflow is a list of rounds. In each round the participants split into breakout rooms for a set time.
 - title: a round's title, or null. A null title shows as "Round 1", "Round 2" and so on, so use null instead of a title that only repeats the round number.
 - roomNames: one name per room. The number of names is the room count. Use short names that fit the activity, or "Room 1", "Room 2" and so on. Names within a round must all differ: when the host wants one name for every room, number them ("Team 1", "Team 2").
-- task: what every room works on. goal is one sentence; instructions are short steps; checklist items are things the room ticks off together. Use null for a round with no task.
+- task: what every room works on. goal is one sentence; instructions are short steps; checklist items are things the room ticks off together. The goal is at most ${MAX_TASK_GOAL_LENGTH} characters, each step at most ${MAX_TASK_STEP_LENGTH} and each checklist item at most ${MAX_CHECKLIST_ITEM_LENGTH}. Use null for a round with no task.
 - activities: questions for participants. "individual" = each person writes a private answer to the host. "ideaBoard" = the room posts shared sticky notes. title is the question; description adds a clue or context, or is empty.
 - grouping: how people are grouped across rounds.
   - "same": same groups every round. The same rooms and the same people in each room. Give every round identical roomNames.
@@ -193,7 +201,11 @@ export function toSnapshot({ grouping, ...draft }: WorkflowDraft): WorkflowSnaps
       roomNames: distinctRoomNames(roomNames),
       durationSec: durationMinutes * 60,
       task: task
-        ? { ...task, checklist: task.checklist.map((label) => ({ id: crypto.randomUUID(), label })) }
+        ? {
+            ...task,
+            resources: httpsLinks(task.resources),
+            checklist: task.checklist.map((label) => ({ id: crypto.randomUUID(), label })),
+          }
         : null,
       activities: activities.map((activity) => ({ ...activity, id: crypto.randomUUID() })),
     })),

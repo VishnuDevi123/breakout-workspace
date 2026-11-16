@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError, readRoundTasks, readSavedRoundPlan, saveRoundPlan } from "@/lib/execution-api";
@@ -26,6 +26,8 @@ import ZoomActionOverlay from "../ZoomActionOverlay";
 import { Button, Card, ConfirmModal, EditableName, SectionLabel } from "../ui";
 
 const DURATION_STEP_SEC = 30;
+/** The rooms counter saves once the host stops clicking, not on every click. */
+const ROOMS_SAVE_DELAY_MS = 400;
 const MIN_DURATION_SEC = 30;
 
 /** How rounds get their groups. Stored as the workspace's two existing flags. */
@@ -116,6 +118,8 @@ export default function RoundsOverview({
     null;
 
   const [applying, setApplying] = useState<BulkAction | null>(null);
+  // The same, for the rooms counter's delayed save: its callback holds an older render.
+  const applyingRef = useRef(false);
   const grouping = groupingOf(workspace);
   const hintId = useId();
   // Everyone Zoom still reports in the meeting. The host is never placed in a room.
@@ -166,11 +170,13 @@ export default function RoundsOverview({
     done: string | null,
     mode: Grouping = grouping,
   ): Promise<boolean> {
-    if (applying) return false;
+    if (applyingRef.current) return false;
+    applyingRef.current = true;
     setApplying(action);
     try {
       const editable = workspace.rounds.filter((round) => round.status === "planned" || round.status === "skipped");
-      for (const round of editable) await writePlan(round, change, mode);
+      // Each round is its own saved plan, so they save side by side.
+      await Promise.all(editable.map((round) => writePlan(round, change, mode)));
       onPlansChanged();
       if (done) toast.success(done);
       return true;
@@ -179,6 +185,7 @@ export default function RoundsOverview({
       toast.error(error instanceof Error ? error.message : "Could not save the rooms.");
       return false;
     } finally {
+      applyingRef.current = false;
       setApplying(null);
     }
   }
@@ -244,6 +251,39 @@ export default function RoundsOverview({
       null,
     );
     if (!saved) setPendingRooms(null);
+  }
+
+  const roomsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomsSaving = useRef(false);
+  /** The count asked for while a save was running; saved right after it. */
+  const roomsQueued = useRef<number | null>(null);
+
+  /**
+   * The counter shows each click at once and saves the count the host settles on.
+   * Saving every click would hold the counter for one save per round each time.
+   */
+  function askRooms(count: number) {
+    if (roomsTimer.current) clearTimeout(roomsTimer.current);
+    if (count === savedRooms && !roomsSaving.current) {
+      // Back where it started: nothing to save.
+      setPendingRooms(null);
+      return;
+    }
+    setPendingRooms(count);
+    roomsTimer.current = setTimeout(() => void saveRooms(count), ROOMS_SAVE_DELAY_MS);
+  }
+
+  async function saveRooms(count: number) {
+    if (roomsSaving.current) {
+      roomsQueued.current = count;
+      return;
+    }
+    roomsSaving.current = true;
+    await setEveryRoundRooms(count);
+    roomsSaving.current = false;
+    const queued = roomsQueued.current;
+    roomsQueued.current = null;
+    if (queued !== null && queued !== count) await saveRooms(queued);
   }
 
   return (
@@ -366,8 +406,8 @@ export default function RoundsOverview({
                     <button
                       type="button"
                       aria-label="Fewer rooms"
-                      disabled={roomCount <= 1 || applying !== null}
-                      onClick={() => void setEveryRoundRooms(roomCount - 1)}
+                      disabled={roomCount <= 1 || applying === "assign"}
+                      onClick={() => askRooms(roomCount - 1)}
                     >
                       −
                     </button>
@@ -375,8 +415,8 @@ export default function RoundsOverview({
                     <button
                       type="button"
                       aria-label="More rooms"
-                      disabled={roomCount >= MAX_ROOMS || applying !== null}
-                      onClick={() => void setEveryRoundRooms(roomCount + 1)}
+                      disabled={roomCount >= MAX_ROOMS || applying === "assign"}
+                      onClick={() => askRooms(roomCount + 1)}
                     >
                       +
                     </button>

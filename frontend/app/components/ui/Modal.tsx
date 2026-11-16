@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-/** Matches the closing animation in globals.css. */
-const CLOSE_MS = 140;
+/** Matches --bw-motion-fast, the closing animation in globals.css. */
+const CLOSE_MS = 150;
 
 /**
  * Centred dialog over the whole dimmed screen. Escape or a click on the dimmed
@@ -19,6 +19,7 @@ const CLOSE_MS = 140;
 export default function Modal({
   label,
   size = "md",
+  placement = "center",
   panelClassName,
   panelStyle,
   locked = false,
@@ -28,6 +29,8 @@ export default function Modal({
 }: {
   label: string;
   size?: "sm" | "md" | "lg";
+  /** "top" for a panel whose height changes while it is open, so it grows downwards. */
+  placement?: "center" | "top";
   /** Extra class on the panel, for a modal with its own look (the participant's poll and quiz card). */
   panelClassName?: string;
   /** CSS variables for the panel, e.g. a room's colour. The panel is portalled, so it inherits none from the page. */
@@ -58,7 +61,7 @@ export default function Modal({
 
   return createPortal(
     <div
-      className={closing ? "bw-overlay bw-overlay--closing" : "bw-overlay"}
+      className={`bw-overlay${placement === "top" ? " bw-overlay--top" : ""}${closing ? " bw-overlay--closing" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={label}

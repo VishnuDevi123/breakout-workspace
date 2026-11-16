@@ -94,14 +94,16 @@ export default function ChallengeEditor({
           <ChallengeScrollBody>
             {isQuiz ? (
               <div className="bw-challenge-editor__intro">
-                <input
+                {/* Wraps onto more lines rather than running off sideways. */}
+                <ExpandingField
                   className="bw-challenge-editor__name"
                   value={draft.title}
                   autoFocus
+                  collapseOnBlur={false}
                   maxLength={MAX_TITLE_LENGTH}
                   placeholder="Quiz title"
-                  aria-label="Quiz title"
-                  onChange={(event) => onChange({ ...draft, title: event.target.value })}
+                  ariaLabel="Quiz title"
+                  onChange={(title) => onChange({ ...draft, title })}
                 />
                 <LimitWarning text={draft.title} max={MAX_TITLE_LENGTH} />
                 <span className="bw-challenge-editor__hint">Tick the right answer to each question.</span>
@@ -241,6 +243,8 @@ function QuestionCard({
               <div className="bw-challenge-option__body">
                 <ExpandingField
                   className="bw-challenge-option__input"
+                  // Always wrapped: a long option shows in full, not cut at one line.
+                  collapseOnBlur={false}
                   value={option}
                   maxLength={MAX_OPTION_LENGTH}
                   ariaLabel={`Option ${letter}`}
@@ -348,12 +352,15 @@ function AnswerTime({
   );
 }
 
-/** Shown once a field holds its most characters; the field itself stops further typing. */
+/**
+ * "120 / 120" once a field holds its most characters (the field itself stops further
+ * typing). Always placed right after its field: CSS shows it only while that field is selected.
+ */
 function LimitWarning({ text, max }: { text: string; max: number }) {
   if (text.length < max) return null;
   return (
     <span className="bw-challenge-limit" role="status">
-      {max} character limit reached
+      {text.length} / {max}
     </span>
   );
 }

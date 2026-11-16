@@ -70,11 +70,16 @@ export default function RoomCard({
               className={`bw-member-row${isAvailable || !rosterKnown ? "" : " bw-member-row--unavailable"}`}
               key={participant.participantUUID}
             >
-              <span className="bw-avatar">{participant.initials}</span>
-              <span className="bw-member-name" title={participant.displayName}>
-                {participant.displayName}{roleSuffix(participant.role)}
+              {/* Initials only; the full name shows on hover and to screen readers. */}
+              <span
+                className="bw-avatar"
+                role="img"
+                aria-label={`${participant.displayName}${roleSuffix(participant.role)}`}
+                title={`${participant.displayName}${roleSuffix(participant.role)}`}
+              >
+                {participant.initials}
               </span>
-              <span className="bw-member-status" title={status}>{status}</span>
+              <span className="bw-member-status">{status}</span>
               <MemberMenu
                 participant={participant}
                 currentRoomId={room.id}

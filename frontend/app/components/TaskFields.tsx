@@ -1,9 +1,21 @@
 "use client";
 
-import { useScrollReveal } from "@/lib/use-scroll-reveal";
-import { MAX_TASK_TEXT_LENGTH, type CheckListItem, type RoomTask } from "@/types/breakout";
+import { useEffect, useRef } from "react";
 
-import ExpandingField from "./ExpandingField";
+import {
+  MAX_CHECKLIST_ITEM_LENGTH,
+  MAX_CHECKLIST_ITEMS,
+  MAX_TASK_GOAL_LENGTH,
+  MAX_TASK_RESOURCES,
+  MAX_TASK_STEP_LENGTH,
+  MAX_TASK_STEPS,
+  MAX_TASK_TEXT_LENGTH,
+  type CheckListItem,
+  type RoomTask,
+  toHttpsLink,
+} from "@/types/breakout";
+
+import GrowingField from "./GrowingField";
 import { SectionLabel } from "./ui";
 
 /**
@@ -17,21 +29,27 @@ export default function TaskFields({
   task,
   setTask,
   save,
-  goalRows,
 }: {
   task: RoomTask;
   setTask: (task: RoomTask) => void;
   save: (task: RoomTask) => void;
-  /** Visible lines in the goal box; longer goals scroll inside it. */
-  goalRows: number;
 }) {
-  const goalScroll = useScrollReveal();
-
   /** Blank rows are working space while typing; they are dropped on save. */
-  function commitLines(field: "instructions" | "resources", lines: string[]) {
-    const next = { ...task, [field]: lines.map((line) => line.trim()).filter(Boolean) };
+  function commitSteps(lines: string[]) {
+    const next = { ...task, instructions: lines.map((line) => line.trim()).filter(Boolean) };
     setTask(next);
     save(next);
+  }
+
+  /**
+   * A link is written out in full ("docs.google.com" becomes "https://docs.google.com/")
+   * and a repeat is dropped. A line that is not a link stays on screen with its error,
+   * but is never saved.
+   */
+  function commitLinks(lines: string[]) {
+    const shown = [...new Set(lines.map((line) => toHttpsLink(line) ?? line.trim()).filter(Boolean))];
+    setTask({ ...task, resources: shown });
+    save({ ...task, resources: shown.filter((line) => toHttpsLink(line) !== null) });
   }
 
   /** Items keep their ids across edits: ticks are stored per item id. */
@@ -58,38 +76,31 @@ export default function TaskFields({
     <>
       <div className="bw-field">
         <SectionLabel>Goal shown to every room</SectionLabel>
-        {/* A fixed-height box: it never grows or shrinks, and longer goals scroll inside. */}
-        <textarea
+        <GrowingField
           className="bw-goal-input bw-goal-input--area"
-          {...goalScroll}
-          rows={goalRows}
+          reserveFull
           value={task.goal}
           placeholder="What should this room achieve?"
-          aria-label="Goal shown to every room"
-          maxLength={MAX_TASK_TEXT_LENGTH}
-          onChange={(event) => setTask({ ...task, goal: event.target.value })}
+          ariaLabel="Goal shown to every room"
+          maxLength={MAX_TASK_GOAL_LENGTH}
+          onChange={(goal) => setTask({ ...task, goal })}
           onBlur={() => save(task)}
         />
-        <span className="bw-field__count">
-          {task.goal.length} / {MAX_TASK_TEXT_LENGTH}
-        </span>
       </div>
 
       <div className="bw-field">
         <SectionLabel>Instructions</SectionLabel>
         <LineList
           lines={task.instructions}
-          numbered
+          marker="number"
           addLabel="+ Add step"
+          fullLabel={`Max ${MAX_TASK_STEPS} steps`}
+          maxLines={MAX_TASK_STEPS}
           placeholder="One step per line"
+          maxLength={MAX_TASK_STEP_LENGTH}
           onChange={(instructions) => setTask({ ...task, instructions })}
-          onCommit={(instructions) => commitLines("instructions", instructions)}
-          onRemove={(index) =>
-            commitLines(
-              "instructions",
-              task.instructions.filter((_, at) => at !== index),
-            )
-          }
+          onCommit={commitSteps}
+          onRemove={(index) => commitSteps(task.instructions.filter((_, at) => at !== index))}
         />
       </div>
 
@@ -97,9 +108,12 @@ export default function TaskFields({
         <SectionLabel>Checklist</SectionLabel>
         <LineList
           lines={task.checklist.map((item) => item.label)}
-          numbered={false}
+          marker="checkbox"
           addLabel="+ Add item"
+          fullLabel={`Max ${MAX_CHECKLIST_ITEMS} items`}
+          maxLines={MAX_CHECKLIST_ITEMS}
           placeholder="Done when…"
+          maxLength={MAX_CHECKLIST_ITEM_LENGTH}
           onChange={editChecklist}
           onCommit={() => commitChecklist(task.checklist)}
           onRemove={(index) =>
@@ -112,17 +126,16 @@ export default function TaskFields({
         <SectionLabel>Resources</SectionLabel>
         <LineList
           lines={task.resources}
-          numbered={false}
+          marker="none"
           addLabel="+ Attach link"
+          fullLabel={`Max ${MAX_TASK_RESOURCES} links`}
+          maxLines={MAX_TASK_RESOURCES}
           placeholder="https://…"
+          maxLength={MAX_TASK_TEXT_LENGTH}
           onChange={(resources) => setTask({ ...task, resources })}
-          onCommit={(resources) => commitLines("resources", resources)}
-          onRemove={(index) =>
-            commitLines(
-              "resources",
-              task.resources.filter((_, at) => at !== index),
-            )
-          }
+          check={(line) => (toHttpsLink(line) === null ? "Enter a web link, like https://docs.google.com/…" : null)}
+          onCommit={commitLinks}
+          onRemove={(index) => commitLinks(task.resources.filter((_, at) => at !== index))}
         />
       </div>
     </>
@@ -130,23 +143,35 @@ export default function TaskFields({
 }
 
 /**
- * An editable list of single-line strings, fully controlled by the caller.
+ * An editable list of lines, fully controlled by the caller.
  * Keeping a local copy here would fight the saved list on every keystroke, so
  * `onChange` reports each edit and `onCommit` marks the points worth saving.
+ * Rows grow with their text; the list grows with its rows.
  */
 function LineList({
   lines,
-  numbered,
+  marker,
   addLabel,
+  fullLabel,
+  maxLines,
   placeholder,
+  maxLength,
+  check,
   onChange,
   onCommit,
   onRemove,
 }: {
   lines: string[];
-  numbered: boolean;
+  /** What leads each row: its step number, an empty tick box (as rooms see it), or nothing. */
+  marker: "number" | "checkbox" | "none";
   addLabel: string;
+  /** Replaces `addLabel` once the list holds `maxLines`. */
+  fullLabel: string;
+  maxLines: number;
   placeholder: string;
+  maxLength: number;
+  /** The error for a written line, or null when it is fine. Blank rows are never checked. */
+  check?: (line: string) => string | null;
   /** Every keystroke. */
   onChange: (lines: string[]) => void;
   /** Leaving a row. */
@@ -154,20 +179,38 @@ function LineList({
   /** By position, so a caller holding ids beside the lines removes the right one. */
   onRemove: (index: number) => void;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  // The row just added, focused and scrolled into view once it is on screen.
+  const focusAt = useRef<number | null>(null);
+  const full = lines.length >= maxLines;
+
+  useEffect(() => {
+    const at = focusAt.current;
+    if (at === null) return;
+    focusAt.current = null;
+    const row = list.current?.querySelectorAll("textarea")[at];
+    if (!row) return;
+    row.focus();
+    row.scrollIntoView({ block: "nearest" });
+  }, [lines.length]);
+
   return (
-    <div className="bw-line-list">
+    <div className="bw-line-list" ref={list}>
       {lines.map((line, index) => (
         <div className="bw-line-row" key={index}>
-          {numbered ? <span className="bw-mono bw-line-row__number">{index + 1}</span> : null}
-          <ExpandingField
+          {marker === "number" ? <span className="bw-mono bw-line-row__number">{index + 1}</span> : null}
+          {marker === "checkbox" ? <span className="bw-line-row__box" aria-hidden="true" /> : null}
+          <GrowingField
             className="bw-line-row__input"
             value={line}
             placeholder={placeholder}
-            maxLength={MAX_TASK_TEXT_LENGTH}
-            // A blank last row is one that was just added, so it takes the caret.
-            autoFocus={line === "" && index === lines.length - 1}
+            ariaLabel={`${marker === "number" ? "Step" : "Line"} ${index + 1}`}
+            maxLength={maxLength}
+            finishOnEnter
+            floatingCount
+            error={check && line.trim() ? check(line) : null}
             onChange={(text) => onChange(lines.map((current, at) => (at === index ? text : current)))}
-            onCommit={() => onCommit(lines)}
+            onBlur={() => onCommit(lines)}
           />
           <button
             className="bw-icon-button bw-close"
@@ -179,8 +222,15 @@ function LineList({
         </div>
       ))}
 
-      <button className="bw-line-add" onClick={() => onChange([...lines, ""])}>
-        {addLabel}
+      <button
+        className="bw-line-add"
+        disabled={full}
+        onClick={() => {
+          focusAt.current = lines.length;
+          onChange([...lines, ""]);
+        }}
+      >
+        {full ? fullLabel : addLabel}
       </button>
     </div>
   );

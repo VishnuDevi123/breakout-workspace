@@ -9,8 +9,65 @@
 /** Most rooms one round can plan. Store, AI schema and editor all use it. */
 export const MAX_ROOMS = 20;
 
-/** Longest goal, step, checklist item or resource line. Store, AI schema and task editor all use it. */
+/** Longest resource line. Store, AI schema and task editor all use it. */
 export const MAX_TASK_TEXT_LENGTH = 500;
+
+/** Longest task goal. Store, AI schema and task editor all use it. */
+export const MAX_TASK_GOAL_LENGTH = 300;
+
+/** Longest instruction step. Store, AI schema and task editor all use it. */
+export const MAX_TASK_STEP_LENGTH = 140;
+
+/** Longest checklist item. Store, AI schema and task editor all use it. */
+export const MAX_CHECKLIST_ITEM_LENGTH = 80;
+
+/** Most instruction steps one task can hold. */
+export const MAX_TASK_STEPS = 10;
+
+/** Most checklist items one task can hold. */
+export const MAX_CHECKLIST_ITEMS = 10;
+
+/** Longest activity question or board prompt. Store, AI schema and activity editor all use it. */
+export const MAX_ACTIVITY_TITLE_LENGTH = 200;
+
+/** Longest activity description ("Additional information"). Store, AI schema and activity editor all use it. */
+export const MAX_ACTIVITY_DESCRIPTION_LENGTH = 500;
+
+/** Most resource links one task can hold. */
+export const MAX_TASK_RESOURCES = 20;
+
+/**
+ * A task resource as it is stored: an https address on a real domain. Fixes what a
+ * host means (adds a missing "https://", upgrades "http://") and returns null for
+ * anything that cannot be a web link: plain words, other schemes such as
+ * "javascript:" or "mailto:", user names in the address, single-word hosts such as
+ * "localhost", and IP addresses. The store, the AI path and the task editor all use it.
+ */
+export function toHttpsLink(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  // A scheme is only taken as one with "://" after it, so "example.com:8080" is a host.
+  const withScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/\//, "")}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return null;
+  }
+  if (url.protocol === "http:") url.protocol = "https:";
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  const labels = url.hostname.split(".");
+  const topLevel = labels[labels.length - 1];
+  if (labels.length < 2 || labels.some((label) => !label)) return null;
+  if (!/^(?:[a-z]{2,63}|xn--[a-z\d-]+)$/i.test(topLevel)) return null;
+  return url.href.length <= MAX_TASK_TEXT_LENGTH ? url.href : null;
+}
+
+/** Resource lines as stored: each made an https link, lines that cannot be one dropped, repeats kept once. */
+export function httpsLinks(lines: string[]): string[] {
+  const links = lines.map(toHttpsLink).filter((link): link is string => link !== null);
+  return [...new Set(links)];
+}
 
 export const ROOM_DOTS = [
   "#fcb900",

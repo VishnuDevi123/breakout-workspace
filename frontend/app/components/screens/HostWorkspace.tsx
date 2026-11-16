@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { readSavedRoundPlan, saveRoundPlan, setRoundSkipped } from "@/lib/execution-api";
@@ -37,6 +37,14 @@ const SETUP_MIN_LOADING_MS = 500;
  * "landing" is the same page chosen on purpose, so it stays put.
  */
 type HostView = "opening" | "landing" | "rounds" | "draft" | "task" | "live";
+
+/** Where a screen sits for the slide between screens: [depth, round position]. */
+type ScreenRank = [number, number];
+
+/** Going deeper (home, workflow, a round, live), or to a later round, slides forward. */
+function isBack(from: ScreenRank, to: ScreenRank): boolean {
+  return to[0] !== from[0] ? to[0] < from[0] : to[1] < from[1];
+}
 
 /** People who can be placed: everyone Zoom still reports in the meeting. */
 function presentCount(live: LiveState | null): number | null {
@@ -445,6 +453,30 @@ export default function HostWorkspace({
     return start(() => workspace.replaceWith(snapshot), "rounds");
   }
 
+  // The screen on show, for the slide between screens. The Rooms and Tasks tabs of a
+  // round are one screen; their content fades instead.
+  const selectedId = workspace.selectedRound?.roundId ?? null;
+  const screen: { key: string; rank: ScreenRank } =
+    currentView === "landing" || workspace.state.kind === "missing"
+      ? { key: "landing", rank: [0, 0] }
+      : currentView === "live" && liveRoundId
+        ? { key: "live", rank: [3, 0] }
+        : currentView === "rounds" || !selectedId
+          ? { key: "rounds", rank: [1, 0] }
+          : { key: `round:${selectedId}`, rank: [2, rounds.findIndex((round) => round.roundId === selectedId)] };
+  const [lastScreen, setLastScreen] = useState(screen);
+  const [nav, setNav] = useState<"next" | "back" | null>(null);
+  if (lastScreen.key !== screen.key) {
+    setLastScreen(screen);
+    setNav(isBack(lastScreen.rank, screen.rank) ? "back" : "next");
+  }
+  // A new key mounts the screen again, so its slide plays. The first screen just fades.
+  const asScreen = (node: ReactNode) => (
+    <div key={screen.key} className="bw-screen" data-nav={nav ?? undefined}>
+      {node}
+    </div>
+  );
+
   // On first open, wait for the live stream too: it decides between landing and
   // the live round, and landing first would flash before the jump.
   if (workspace.state.kind === "loading" || (view === "opening" && !live.liveState)) {
@@ -490,7 +522,7 @@ export default function HostWorkspace({
         onClose={() => setStrandedRooms(false)}
       />
     ) : null;
-    return (
+    return asScreen(
       <>
       {stranded}
       <LandingScreen
@@ -535,12 +567,12 @@ export default function HostWorkspace({
         onBuildRounds={buildRounds}
         onUse={startFrom}
       />
-      </>
+      </>,
     );
   }
   if (currentView === "live" && liveRoundId) {
     if (!livePlan || !live.liveState) return <LoadingScreen message="Opening the live round…" />;
-    return (
+    return asScreen(
       <LiveRound
         workspace={workspace.state.workspace}
         round={livePlan}
@@ -570,11 +602,11 @@ export default function HostWorkspace({
         onDeleteRound={(roundId) =>
           reportFailure("Could not delete that round.", () => workspace.deleteRound(roundId))
         }
-      />
+      />,
     );
   }
   if (currentView === "rounds" || !workspace.selectedRound) {
-    return (
+    return asScreen(
       <RoundsOverview
         workspace={workspace.state.workspace}
         parentUUID={meetingUUID}
@@ -599,12 +631,12 @@ export default function HostWorkspace({
           workspace.selectRound(roundId);
           setView("draft");
         }}
-      />
+      />,
     );
   }
 
   const selected = workspace.selectedRound;
-  return (
+  return asScreen(
     <RoundEditor
       // A new round starts fresh: its own short loading pause and fade-in.
       key={selected.roundId}
@@ -620,7 +652,7 @@ export default function HostWorkspace({
         workspace.selectRound(roundId);
         setView("draft");
       }}
-    />
+    />,
   );
 }
 

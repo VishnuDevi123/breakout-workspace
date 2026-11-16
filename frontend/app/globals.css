@@ -6,6 +6,10 @@
  */
 
 :root {
+  /* Motion: one curve, two speeds. Fast for fades and hover, normal for anything that moves. */
+  --bw-motion-fast: 150ms;
+  --bw-motion: 220ms;
+  --bw-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* One library card (title and meta line). */
   --bw-library-row-h: 74px;
   color-scheme: light;
@@ -85,6 +89,13 @@
   --bw-challenge-right: #16a34a;
   --bw-quiz-fill: #fcdcc2;
   --bw-quiz-deep: #9a4a12;
+  /* Activity windows, tinted like poll and quiz: window, borders, inputs. */
+  --bw-individual-tint: #fffbea;
+  --bw-individual-line: #f3e3a2;
+  --bw-individual-field: #fffdf5;
+  --bw-shared-tint: #effcfa;
+  --bw-shared-line: #b5e7de;
+  --bw-shared-field: #f8fffd;
 
   /* Room dots */
   --bw-dot-1: #fcb900;
@@ -154,6 +165,13 @@
 
 body {
   margin: 0;
+  /* A long word with no spaces (a link, a typo) breaks onto the next line instead of
+     running out of its box. */
+  overflow-wrap: break-word;
+  /* The window never scrolls sideways. A screen sliding in from the right sits past
+     the edge for a moment; without this the window grows scrollbars, shrinks, and
+     every column reflows twice. */
+  overflow-x: clip;
   background: var(--bw-bg);
   color: var(--bw-ink);
   font-family: var(--bw-font-ui);
@@ -215,9 +233,9 @@ input[type="checkbox"] {
   text-align: center;
   cursor: pointer;
   transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
+    background var(--bw-motion-fast) var(--bw-ease),
+    border-color var(--bw-motion-fast) var(--bw-ease),
+    color var(--bw-motion-fast) var(--bw-ease);
 }
 
 .bw-button:disabled {
@@ -296,6 +314,117 @@ input[type="checkbox"] {
 
 .bw-button--busy .bw-spinner {
   position: absolute;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+/*
+ * Three kinds of movement, each with one meaning:
+ * - Fade: something appears in place (a tab, an answer, a hint).
+ * - Rise: something opens on top (a modal, the bottom sheet, the AI panel, an incoming poll).
+ * - Slide: moving between screens or pages, from the side you are heading to.
+ * No fill mode on screen-sized animations: a finished animation that still "fills"
+ * keeps the page on its own compositing layer, and Zoom's WebKit view then repaints
+ * it late while scrolling (ghost bands above and below the cards).
+ */
+@keyframes bwFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bwFadeOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes bwRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes bwRiseOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* Rise for panels that come in from a window edge. */
+@keyframes bwSheetIn {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes bwSheetOut {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes bwDrawerIn {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes bwSlideNext {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes bwSlideBack {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+/* Reduced motion: the same names fade only, so no rule needs its own override. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes bwRiseIn {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwRiseOut {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes bwSheetIn {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwSheetOut {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes bwDrawerIn {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwSlideNext {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwSlideBack {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/*
+ * A host screen change (HostWorkspace): forward slides in from the right, back from
+ * the left. The wrapper itself moves, so a screen that swaps its loading state for
+ * its content underneath still slides only once.
+ */
+.bw-screen[data-nav="next"] {
+  animation: bwSlideNext var(--bw-motion) var(--bw-ease);
+}
+.bw-screen[data-nav="back"] {
+  animation: bwSlideBack var(--bw-motion) var(--bw-ease);
 }
 
 /* ── Spinner ────────────────────────────────────────────────────────────── */
@@ -549,10 +678,12 @@ input[type="checkbox"] {
   gap: 13px;
 }
 
-/* Cards are at least 220px wide; the column count follows the space. */
+/* Cards are at least 220px wide; the column count follows the space.
+   Every row is as tall as the fullest card, so all cards grow together. */
 .bw-room-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-auto-rows: 1fr;
   gap: 12px;
 }
 
@@ -581,13 +712,7 @@ input[type="checkbox"] {
 
 /* Every landing state fades in, including the return after End Workflow. */
 .bw-landing {
-  animation: bwPageIn 200ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bw-landing {
-    animation-name: bwFadeIn;
-  }
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease);
 }
 
 .bw-landing-card__actions {
@@ -686,7 +811,7 @@ input[type="checkbox"] {
 
 /* WebKit repaints a custom scrollbar only when the element's own style changes. */
 .bw-library-list[data-scrolling],
-.bw-goal-input--area[data-scrolling] {
+.bw-grow__field--fixed[data-scrolling] {
   --bw-scrollbar-repaint: 1;
 }
 
@@ -783,7 +908,7 @@ input[type="checkbox"] {
 
 /* Header action that changes (Launch next <-> End Workflow) fades in. */
 .bw-swap-in {
-  animation: bwFadeIn 200ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 
 .bw-landing > .bw-card {
@@ -801,6 +926,7 @@ input[type="checkbox"] {
 .bw-landing-lede {
   margin: 0;
   max-width: 520px;
+  overflow-wrap: anywhere;
   font-size: var(--bw-fs-body);
   line-height: 1.5;
   color: var(--bw-muted);
@@ -948,7 +1074,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 14px;
   width: 100%;
-  transition: opacity 300ms ease;
+  transition: opacity var(--bw-motion) var(--bw-ease);
 }
 
 .bw-landing-rest--dimmed {
@@ -961,7 +1087,7 @@ input[type="checkbox"] {
   inset: 0;
   z-index: 30; /* below .bw-overlay (40), so the replace confirm sits on top */
   background: rgb(23 32 51 / 35%);
-  animation: bwFadeIn 200ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 
 .bw-ai-panel {
@@ -972,18 +1098,7 @@ input[type="checkbox"] {
   width: min(480px, 100%);
   background: var(--bw-surface-sunken);
   box-shadow: var(--bw-shadow-2);
-  animation: bwAiSlideIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-@keyframes bwAiSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bw-ai-panel {
-    animation-name: bwFadeIn;
-  }
+  animation: bwDrawerIn var(--bw-motion) var(--bw-ease) both;
 }
 
 .bw-ai-panel__header {
@@ -1438,7 +1553,7 @@ input[type="checkbox"] {
   background: var(--bw-surface);
   color: var(--bw-ink);
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease), background-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-pager__button svg {
   width: 16px;
@@ -1464,18 +1579,6 @@ input[type="checkbox"] {
   font-variant-numeric: tabular-nums;
   color: var(--bw-muted);
 }
-@keyframes bwRoundsNext {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-@keyframes bwRoundsBack {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-}
 @media (max-width: 639px) {
   .bw-workflow .bw-round-pages__item[data-off] {
     display: none;
@@ -1497,11 +1600,11 @@ input[type="checkbox"] {
   .bw-workflow .bw-round-pages[data-paged] > .bw-add-round {
     grid-row: 4;
   }
-  .bw-workflow .bw-round-pages__item > * {
-    animation: bwRoundsNext 200ms ease-out;
+  .bw-workflow .bw-round-pages[data-direction="next"] .bw-round-pages__item > * {
+    animation: bwSlideNext var(--bw-motion) var(--bw-ease);
   }
   .bw-workflow .bw-round-pages[data-direction="back"] .bw-round-pages__item > * {
-    animation-name: bwRoundsBack;
+    animation: bwSlideBack var(--bw-motion) var(--bw-ease);
   }
 }
 @container frame-page (max-width: 719px) {
@@ -1523,24 +1626,11 @@ input[type="checkbox"] {
   .bw-session .bw-round-pages[data-paged] > .bw-session-rounds__add {
     grid-row: 4;
   }
-  .bw-session .bw-round-pages__item > * {
-    animation: bwRoundsNext 200ms ease-out;
+  .bw-session .bw-round-pages[data-direction="next"] .bw-round-pages__item > * {
+    animation: bwSlideNext var(--bw-motion) var(--bw-ease);
   }
   .bw-session .bw-round-pages[data-direction="back"] .bw-round-pages__item > * {
-    animation-name: bwRoundsBack;
-  }
-}
-/* Reduced motion: the same names, fading only. */
-@media (prefers-reduced-motion: reduce) {
-  @keyframes bwRoundsNext {
-    from {
-      opacity: 0;
-    }
-  }
-  @keyframes bwRoundsBack {
-    from {
-      opacity: 0;
-    }
+    animation: bwSlideBack var(--bw-motion) var(--bw-ease);
   }
 }
 
@@ -1566,8 +1656,7 @@ input[type="checkbox"] {
   gap: 7px;
 }
 
-.bw-room-name,
-.bw-member-name {
+.bw-room-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1577,11 +1666,6 @@ input[type="checkbox"] {
 .bw-room-name {
   font-size: var(--bw-fs-body);
   font-weight: 600;
-}
-
-.bw-member-name {
-  flex: 1;
-  font-size: var(--bw-fs-meta);
 }
 
 .bw-room-name-input {
@@ -1689,14 +1773,14 @@ input[type="checkbox"] {
   border: 1px dashed var(--bw-red);
   background: #fffafa;
 }
+/* Wraps rather than cutting off, so the card grows to fit it. */
 .bw-member-status {
-  flex: none;
-  max-width: 96px;
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--bw-muted-4);
   font-size: var(--bw-fs-meta);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 .bw-member-menu {
@@ -1869,7 +1953,7 @@ input[type="checkbox"] {
   justify-content: center;
   padding: 40px;
   gap: 18px;
-  animation: bwPageIn 200ms ease-out;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease);
 }
 
 /* A past round's board as plain lines: "Name: idea". */
@@ -2053,17 +2137,18 @@ input[type="checkbox"] {
   color: var(--bw-ink);
 }
 /*
- * Task fields: one line with a fade at the edge, growing downwards while
+ * Poll and quiz fields: one line with a fade at the edge, growing downwards while
  * edited (ExpandingField sets the open height). The closed height
  * is one line plus the field's padding and border, so both ends animate.
  */
 .bw-expanding {
   display: block;
   width: 100%;
+  overflow-wrap: anywhere;
   height: var(--bw-expanding-closed);
   overflow: hidden;
   resize: none;
-  transition: height 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: height var(--bw-motion) var(--bw-ease);
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
@@ -2074,22 +2159,18 @@ input[type="checkbox"] {
   -webkit-mask-image: none;
   mask-image: none;
 }
-/* The task goal as a fixed-height box (rows set by the page); longer goals scroll inside. */
+/* The task goal. TaskFields sets its height to fit a full-length goal; this is the
+   floor until it has measured (three lines plus padding and border). */
 .bw-goal-input--area {
   display: block;
   width: 100%;
-  resize: none;
-  overflow-y: auto;
-  transition: border-color 200ms ease-out, box-shadow 200ms ease-out;
+  min-height: calc(3lh + 24px);
+  transition: border-color var(--bw-motion-fast) var(--bw-ease), box-shadow var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-goal-input.bw-goal-input--area:focus-visible {
   outline: none;
   border-color: var(--bw-accent);
   box-shadow: 0 0 0 1px var(--bw-accent);
-}
-.bw-line-row__input.bw-expanding {
-  --bw-expanding-closed: calc(1lh + 10px);
-  line-height: 1.4;
 }
 @media (prefers-reduced-motion: reduce) {
   .bw-expanding {
@@ -2111,15 +2192,79 @@ input[type="checkbox"] {
   border-radius: var(--bw-radius-md);
   overflow: hidden;
 }
+/* Task text boxes (TaskFields): grow with their text and never scroll. */
+.bw-grow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bw-grow__field {
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
+  overflow-wrap: anywhere;
+}
+/* A fixed box (grow={false}): exactly --bw-field-rows lines, longer text scrolls inside. */
+.bw-grow__field--fixed {
+  resize: none;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.bw-field__count[data-full] {
+  color: var(--bw-danger-text);
+}
+/* One line kept free under every task text box for its counter or error, so
+   neither moves anything when it appears. */
+.bw-field__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 1lh;
+  font-size: var(--bw-fs-label);
+  line-height: 1.4;
+}
+/* List rows keep no counter line: the count floats in the row's bottom padding
+   (the field's 5px and the row's 7px), under the ✕, so a row is only as tall as its text. */
+.bw-line-row {
+  position: relative;
+}
+.bw-field__count--float {
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  line-height: 12px;
+}
+.bw-line-row .bw-field__error {
+  padding-bottom: 4px;
+  font-size: var(--bw-fs-label);
+}
+.bw-field__meta > .bw-field__count {
+  margin-left: auto;
+}
+.bw-field__error {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bw-danger-text);
+}
+/* The row being edited: a light fill and an accent bar on its left edge. */
+.bw-line-row:focus-within {
+  background: var(--bw-surface-sunken);
+  box-shadow: inset 3px 0 0 var(--bw-accent);
+}
 /* Rows top-aligned: an open field grows downwards, its number and ✕ stay on the first line. */
 .bw-line-row {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  padding: 4px 11px;
+  gap: 12px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--bw-border-faint);
 }
 .bw-line-row__number {
+  min-width: 1ch;
   padding-top: 6px; /* level with the field's first line */
   font-size: var(--bw-fs-meta);
   font-weight: 600;
@@ -2128,14 +2273,26 @@ input[type="checkbox"] {
 .bw-line-row > .bw-icon-button {
   margin-top: 4px;
 }
+/* A checklist row's empty tick box, as the rooms see it. */
+.bw-line-row__box {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 6px;
+  border: 1px solid var(--bw-border-strong);
+  border-radius: 4px;
+  background: var(--bw-surface);
+}
 .bw-line-row__input {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  width: 100%;
+  min-height: calc(1lh + 10px);
   padding: 5px 0;
   border: 0;
   background: none;
   font: inherit;
   font-size: var(--bw-fs-body);
+  line-height: 1.4;
   color: var(--bw-ink);
 }
 .bw-line-row__input:focus-visible {
@@ -2143,17 +2300,21 @@ input[type="checkbox"] {
 }
 .bw-line-add {
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   border: 0;
-  border-top: 1px dashed var(--bw-border-soft);
+  border-top: 1px solid var(--bw-border-faint);
   background: var(--bw-surface-sunken);
   font: inherit;
-  font-size: var(--bw-fs-meta);
+  font-size: var(--bw-fs-body);
   color: var(--bw-muted-2);
   cursor: pointer;
 }
-.bw-line-add:hover {
+.bw-line-add:hover:not(:disabled) {
   color: var(--bw-ink);
+}
+.bw-line-add:disabled {
+  color: var(--bw-muted-4);
+  cursor: default;
 }
 
 /* ── Participant room: task text ───────────────────────────────────── */
@@ -2249,7 +2410,7 @@ a.bw-resource-row:hover {
   justify-content: center;
   padding: 16px;
   background: rgb(23 32 51 / 40%);
-  animation: bwFadeIn 180ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-overlay__panel {
   width: 100%;
@@ -2262,7 +2423,7 @@ a.bw-resource-row:hover {
   border-radius: var(--bw-radius-lg);
   box-shadow: var(--bw-shadow-2);
   overflow: hidden;
-  animation: bwModalIn 180ms ease-out both;
+  animation: bwRiseIn var(--bw-motion) var(--bw-ease) both;
 }
 .bw-overlay__panel--sm {
   max-width: 420px;
@@ -2270,11 +2431,24 @@ a.bw-resource-row:hover {
 .bw-overlay__panel--lg {
   max-width: 880px;
 }
+/* A panel whose content changes height (the task editor) hangs from the top, so it
+   grows downwards instead of moving up and down to stay centred. */
+.bw-overlay--top {
+  align-items: flex-start;
+  padding-top: max(16px, 6dvh);
+}
+.bw-overlay--top .bw-overlay__panel {
+  max-height: calc(100dvh - max(16px, 6dvh) - 16px);
+}
+/* The task editor fits its content up to this; only its body scrolls. */
+.bw-overlay--top .bw-task-panel {
+  max-height: min(85vh, 800px, calc(100dvh - max(16px, 6dvh) - 16px));
+}
 .bw-overlay--closing {
-  animation: bwFadeOut 140ms ease-in both;
+  animation: bwFadeOut var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-overlay--closing .bw-overlay__panel {
-  animation: bwModalOut 140ms ease-in both;
+  animation: bwRiseOut var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-overlay__header {
   flex: none;
@@ -2300,36 +2474,6 @@ a.bw-resource-row:hover {
   gap: 12px;
   padding: 12px 16px;
   border-top: 1px solid var(--bw-border);
-}
-@keyframes bwFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes bwFadeOut {
-  to {
-    opacity: 0;
-  }
-}
-@keyframes bwModalIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-@keyframes bwModalOut {
-  to {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bw-overlay__panel {
-    animation-name: bwFadeIn;
-  }
-  .bw-overlay--closing .bw-overlay__panel {
-    animation-name: bwFadeOut;
-  }
 }
 
 /* ── Task summary in the live rail ─────────────────────────────────── */
@@ -2439,17 +2583,6 @@ a.bw-resource-row:hover {
   color: var(--bw-ink);
   border-bottom: 1px solid var(--bw-border);
 }
-/*
- * No fill mode on purpose: a finished animation that still "fills" keeps the
- * page on its own compositing layer, and Zoom's WebKit view then repaints it
- * late while scrolling (ghost bands above and below the cards).
- */
-@keyframes bwPageIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
 .bw-setup-pending {
   min-height: 240px;
   display: flex;
@@ -2555,13 +2688,8 @@ a.bw-resource-row:hover {
 /* The sheet covers the bottom of the page, so the last rooms can scroll above it. */
 /* Every new page, tab or round fades in rather than appearing at once. */
 .bw-frame__content {
-  animation: bwPageIn 200ms ease-out;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease);
   padding: 20px 20px calc(20px + var(--bw-sheet-h, 0px));
-}
-@media (prefers-reduced-motion: reduce) {
-  .bw-frame__content {
-    animation-name: bwFadeIn;
-  }
 }
 @container frame-page (max-width: 639px) {
   .bw-frame__content {
@@ -2940,7 +3068,7 @@ a.bw-resource-row:hover {
   color: var(--bw-ink);
   text-align: center;
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease), background-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-choice:hover {
   border-color: var(--bw-border-strong);
@@ -3007,12 +3135,12 @@ a.bw-resource-row:hover {
   color: var(--bw-muted);
   visibility: hidden;
   opacity: 0;
-  transition: opacity 150ms ease, visibility 0s 150ms;
+  transition: opacity var(--bw-motion-fast) var(--bw-ease), visibility 0s var(--bw-motion-fast);
 }
 .bw-choice__hint[data-shown] {
   visibility: visible;
   opacity: 1;
-  transition: opacity 150ms ease;
+  transition: opacity var(--bw-motion-fast) var(--bw-ease);
 }
 @media (prefers-reduced-motion: reduce) {
   .bw-choice,
@@ -3238,26 +3366,10 @@ a.bw-resource-row:hover {
   overflow: hidden;
 }
 .bw-sheet--slide {
-  animation: bw-sheet-in 220ms ease-out;
+  animation: bwSheetIn var(--bw-motion) var(--bw-ease);
 }
 .bw-sheet--closing {
-  animation: bw-sheet-out 180ms ease-in forwards;
-}
-@keyframes bw-sheet-in {
-  from { transform: translateY(100%); }
-}
-@keyframes bw-sheet-out {
-  to { transform: translateY(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bw-sheet--slide { animation-name: bw-fade-in; }
-  .bw-sheet--closing { animation-name: bw-fade-out; }
-}
-@keyframes bw-fade-in {
-  from { opacity: 0; }
-}
-@keyframes bw-fade-out {
-  to { opacity: 0; }
+  animation: bwSheetOut var(--bw-motion-fast) var(--bw-ease) forwards;
 }
 .bw-sheet__handle {
   flex: none;
@@ -3455,14 +3567,58 @@ a.bw-resource-row:hover {
   font-size: var(--bw-fs-meta);
   color: var(--bw-muted-3);
 }
+/* Four lines tall (GrowingField sets the rows); longer text scrolls inside. */
 .bw-activity-description {
+  display: block;
+  width: 100%;
+  height: calc(var(--bw-field-rows, 4) * 1lh + 20px); /* padding and border */
   padding: 9px 12px;
   border: 1px solid var(--bw-border);
   border-radius: var(--bw-radius-md);
   font: inherit;
   font-size: var(--bw-fs-body);
   line-height: 1.45;
-  resize: vertical;
+}
+.bw-activity-description:focus-visible {
+  outline: 2px solid var(--bw-accent);
+  outline-offset: 1px;
+}
+/* Individual and shared response windows: the window, its rules and its fields take
+   the kind's tint; the focus ring stays indigo. */
+.bw-activity-panel--individual {
+  --bw-act-tint: var(--bw-individual-tint);
+  --bw-act-line: var(--bw-individual-line);
+  --bw-act-field: var(--bw-individual-field);
+}
+.bw-activity-panel--ideaBoard {
+  --bw-act-tint: var(--bw-shared-tint);
+  --bw-act-line: var(--bw-shared-line);
+  --bw-act-field: var(--bw-shared-field);
+}
+.bw-overlay__panel.bw-activity-panel {
+  background: var(--bw-act-tint);
+  border-color: var(--bw-act-line);
+}
+.bw-activity-panel .bw-overlay__header {
+  border-color: var(--bw-act-line);
+}
+.bw-activity-panel .bw-goal-input,
+.bw-activity-panel .bw-activity-description {
+  background: var(--bw-act-field);
+  border-color: var(--bw-act-line);
+}
+.bw-activity-question {
+  display: block;
+  width: 100%;
+}
+.bw-activity-panel .bw-goal-input:focus-visible,
+.bw-activity-panel .bw-activity-description:focus-visible {
+  border-color: var(--bw-accent);
+}
+.bw-activity-panel__title {
+  font-size: calc(var(--bw-fs-section) + 1px);
+  font-weight: 600;
+  color: var(--bw-ink);
 }
 
 /* ── Participant room page: activity cards ───────────────────────── */
@@ -3712,7 +3868,7 @@ a.bw-resource-row:hover {
   white-space: nowrap;
   color: var(--bw-ink);
   cursor: pointer;
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), border-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-room-status__option:hover:not([aria-pressed="true"]) {
   border-color: var(--bw-accent);
@@ -3953,31 +4109,31 @@ a.bw-resource-row:hover {
 /* The scrollbar keeps its space but shows only while the body scrolls (useScrollReveal). */
 .bw-challenge-scroll,
 .bw-expanding,
-.bw-goal-input--area {
+.bw-grow__field--fixed {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 .bw-challenge-scroll[data-scrolling],
 .bw-expanding[data-scrolling],
-.bw-goal-input--area[data-scrolling] {
+.bw-grow__field--fixed[data-scrolling] {
   scrollbar-color: var(--bw-border-strong) transparent;
 }
 .bw-challenge-scroll::-webkit-scrollbar,
 .bw-expanding::-webkit-scrollbar,
-.bw-goal-input--area::-webkit-scrollbar,
+.bw-grow__field--fixed::-webkit-scrollbar,
 .bw-library-list::-webkit-scrollbar {
   width: 6px;
 }
 .bw-challenge-scroll::-webkit-scrollbar-thumb,
 .bw-expanding::-webkit-scrollbar-thumb,
-.bw-goal-input--area::-webkit-scrollbar-thumb,
+.bw-grow__field--fixed::-webkit-scrollbar-thumb,
 .bw-library-list::-webkit-scrollbar-thumb {
   border-radius: 3px;
   background: transparent;
 }
 .bw-challenge-scroll[data-scrolling]::-webkit-scrollbar-thumb,
 .bw-expanding[data-scrolling]::-webkit-scrollbar-thumb,
-.bw-goal-input--area[data-scrolling]::-webkit-scrollbar-thumb,
+.bw-grow__field--fixed[data-scrolling]::-webkit-scrollbar-thumb,
 .bw-library-list[data-scrolling]::-webkit-scrollbar-thumb {
   background: var(--bw-border-strong);
 }
@@ -4037,7 +4193,7 @@ a.bw-resource-row:hover {
   height: 100%;
   border-radius: inherit;
   background: var(--bw-accent);
-  transition: width 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 400ms var(--bw-ease); /* a vote meter filling: slower than the UI */
 }
 .bw-challenge-card__action {
   margin-top: auto;
@@ -4167,7 +4323,7 @@ a.bw-resource-row:hover {
   font-weight: 600;
   line-height: 1.3;
   color: var(--bw-ink);
-  transition: border-color 150ms ease-out;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-editor__name::placeholder {
   font-weight: 400;
@@ -4243,7 +4399,7 @@ a.bw-resource-row:hover {
   border: 1px solid var(--bw-border);
   border-radius: var(--bw-radius-md);
   background: var(--bw-surface);
-  transition: border-color 150ms ease-out, background-color 150ms ease-out, box-shadow 150ms ease-out;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease), background-color var(--bw-motion-fast) var(--bw-ease), box-shadow var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-option:focus-within {
   border-color: var(--bw-accent);
@@ -4283,7 +4439,7 @@ button.bw-challenge-option__mark {
   cursor: pointer;
   border-color: var(--bw-border-strong);
   background: var(--bw-surface);
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), border-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-panel button.bw-challenge-option__mark:hover:not([aria-checked="true"]) {
   border-color: var(--bw-challenge-right);
@@ -4310,10 +4466,17 @@ button.bw-challenge-option__mark {
   flex-direction: column;
   gap: 2px;
 }
+/* Right-aligned under its field, like the task editor's counters. */
 .bw-challenge-limit {
+  align-self: flex-end;
   font-size: var(--bw-fs-label);
+  font-variant-numeric: tabular-nums;
   color: var(--bw-danger-text);
-  animation: bwFadeIn 150ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
+}
+/* Only for the field being edited. */
+:is(input, textarea):not(:focus) + .bw-challenge-limit {
+  display: none;
 }
 .bw-challenge-option__input {
   padding: 3px 0;
@@ -4327,6 +4490,10 @@ button.bw-challenge-option__mark {
 /* One line until edited; ExpandingField grows it while focused. */
 .bw-challenge-option__input.bw-expanding {
   --bw-expanding-closed: calc(1lh + 6px);
+}
+/* The quiz title: one heading line (plus its padding and underline) until it wraps. */
+.bw-challenge-editor__name.bw-expanding {
+  --bw-expanding-closed: calc(1lh + 11px);
 }
 .bw-challenge-option__input:focus-visible {
   outline: none;
@@ -4343,7 +4510,7 @@ button.bw-challenge-option__mark {
   font-size: var(--bw-fs-button-sm);
   color: var(--bw-ink);
   cursor: pointer;
-  transition: border-color 150ms ease-out, color 150ms ease-out, background-color 150ms ease-out;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease), background-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-add {
   border-radius: var(--bw-radius-lg);
@@ -4473,7 +4640,7 @@ button.bw-challenge-option__mark {
   z-index: -1;
   width: var(--bw-share, 0%);
   background: var(--bw-accent-tint);
-  transition: width 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 400ms var(--bw-ease); /* a vote meter filling: slower than the UI */
 }
 .bw-tally__option--right {
   border-color: var(--bw-green);
@@ -4600,7 +4767,7 @@ button.bw-challenge-option__mark {
   text-align: center;
 }
 .bw-incoming > * {
-  animation: bwIncomingUp 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: bwRiseIn var(--bw-motion) var(--bw-ease) both;
 }
 .bw-incoming__label {
   padding: 3px 10px;
@@ -4631,13 +4798,7 @@ button.bw-challenge-option__mark {
   margin-top: 8px;
   border-radius: var(--bw-radius-pill);
   background: linear-gradient(var(--bw-amber), var(--bw-amber)) left / 0% 100% no-repeat, var(--bw-surface-muted);
-  animation: bwIncomingUp 320ms 160ms both, bwIncomingFill 1400ms 200ms linear both;
-}
-@keyframes bwIncomingUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+  animation: bwRiseIn var(--bw-motion) var(--bw-ease) 160ms both, bwIncomingFill 1400ms 200ms linear both;
 }
 @keyframes bwIncomingFill {
   to {
@@ -4648,7 +4809,7 @@ button.bw-challenge-option__mark {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: bwFadeIn 200ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-challenge-answer__hint {
   font-size: var(--bw-fs-meta);
@@ -4677,7 +4838,7 @@ button.bw-challenge-option__mark {
   height: 4px;
   border-radius: 2px;
   background: var(--bw-surface-muted);
-  transition: background-color 200ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-progress__step--done {
   background: var(--bw-accent);
@@ -4705,7 +4866,7 @@ button.bw-challenge-option__mark {
   text-align: left;
   color: var(--bw-ink);
   cursor: pointer;
-  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), border-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-choice:hover:not([aria-pressed="true"]) {
   border-color: var(--bw-accent);
@@ -4727,7 +4888,7 @@ button.bw-challenge-option__mark {
   font-family: var(--bw-font-mono);
   font-size: var(--bw-fs-label);
   font-weight: 600;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-challenge-choice[aria-pressed="true"] .bw-challenge-choice__letter {
   background: var(--bw-accent);
@@ -4756,7 +4917,7 @@ button.bw-challenge-option__mark {
   color: var(--bw-amber-deep);
   font-size: 10px;
   font-weight: 600;
-  animation: bwIncomingUp 200ms ease-out both;
+  animation: bwRiseIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-challenge-wait,
 .bw-challenge-winner {
@@ -4788,12 +4949,9 @@ button.bw-challenge-option__mark {
   color: var(--bw-accent-deep);
 }
 @media (prefers-reduced-motion: reduce) {
-  .bw-incoming > *,
-  .bw-challenge-choice__initials {
-    animation-name: bwFadeIn;
-  }
+  /* The timer bar shows full at once instead of filling. */
   .bw-incoming__bar {
-    animation: bwFadeIn 200ms both;
+    animation: bwFadeIn var(--bw-motion-fast) both;
     background-size: 100% 100%, auto;
   }
   .bw-tally__option::before,
@@ -4816,7 +4974,7 @@ button.bw-challenge-option__mark {
   color: var(--bw-ink);
   font: 600 16px var(--bw-font-ui);
   cursor: pointer;
-  transition: background-color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-back-button:hover,
 .bw-back-button:focus-visible {
@@ -4908,7 +5066,7 @@ button.bw-challenge-option__mark {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: bwFadeIn 200ms ease-out both;
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-play__progress {
   display: flex;
@@ -4920,7 +5078,7 @@ button.bw-challenge-option__mark {
   height: 4px;
   border-radius: 2px;
   background: color-mix(in srgb, var(--bw-room-ink) 22%, transparent);
-  transition: background-color 200ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-play__step--done {
   background: var(--bw-room-ink);
@@ -4964,7 +5122,7 @@ button.bw-challenge-option__mark {
   text-align: left;
   color: var(--bw-room-ink);
   cursor: pointer;
-  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), border-color var(--bw-motion-fast) var(--bw-ease);
 }
 .bw-play__option::before {
   content: "";
@@ -4973,7 +5131,7 @@ button.bw-challenge-option__mark {
   z-index: -1;
   width: var(--bw-share, 0%);
   background: color-mix(in srgb, var(--bw-room-ink) 16%, transparent);
-  transition: width 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 400ms var(--bw-ease); /* a vote meter filling: slower than the UI */
 }
 .bw-play__option:hover {
   background: color-mix(in srgb, var(--bw-room-ink) 15%, transparent);
@@ -5005,7 +5163,7 @@ button.bw-challenge-option__mark {
   color: #ffffff;
   font-size: 10px;
   font-weight: 600;
-  animation: bwIncomingUp 200ms ease-out both;
+  animation: bwRiseIn var(--bw-motion-fast) var(--bw-ease) both;
 }
 .bw-play__check {
   flex: none;
@@ -5166,9 +5324,6 @@ button.bw-challenge-option__mark {
   .bw-play__option::before {
     transition: none;
   }
-  .bw-play__initials {
-    animation-name: bwFadeIn;
-  }
   .bw-play .bw-incoming__bar {
     background-size: 100% 100%, auto;
   }
@@ -5193,14 +5348,14 @@ button.bw-challenge-option__mark {
   visibility: hidden;
   pointer-events: none;
   transform: translate(-50%, -8px);
-  transition: opacity 200ms ease, transform 200ms ease, visibility 0s linear 200ms;
+  transition: opacity var(--bw-motion-fast) var(--bw-ease), transform var(--bw-motion-fast) var(--bw-ease), visibility 0s linear var(--bw-motion-fast);
 }
 
 .bw-connection--shown {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, 0);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity var(--bw-motion-fast) var(--bw-ease), transform var(--bw-motion-fast) var(--bw-ease);
 }
 
 .bw-connection__title {
@@ -5228,7 +5383,7 @@ button.bw-challenge-option__mark {
    button's own hover. */
 .bw-close {
   border-radius: var(--bw-radius-pill);
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  transition: background-color var(--bw-motion-fast) var(--bw-ease), border-color var(--bw-motion-fast) var(--bw-ease), color var(--bw-motion-fast) var(--bw-ease);
 }
 button.bw-close:hover:not(:disabled),
 button.bw-close:focus-visible {

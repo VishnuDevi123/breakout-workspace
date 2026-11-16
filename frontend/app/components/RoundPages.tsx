@@ -29,7 +29,8 @@ export default function RoundPages({
 }) {
   const pages = Math.max(1, Math.ceil(items.length / PER_PAGE));
   const [wanted, setWanted] = useState(() => (currentIndex === null ? 0 : pageOf(currentIndex)));
-  const [direction, setDirection] = useState<"next" | "back">("next");
+  // Null until the page changes, so cards do not slide in when the list first shows.
+  const [direction, setDirection] = useState<"next" | "back" | null>(null);
   const [seen, setSeen] = useState({ count: items.length, current: currentIndex });
   if (seen.count !== items.length || seen.current !== currentIndex) {
     setSeen({ count: items.length, current: currentIndex });
@@ -50,7 +51,7 @@ export default function RoundPages({
   }
 
   return (
-    <div className={`bw-round-pages ${className}`} data-direction={direction} data-paged={pages > 1 || undefined}>
+    <div className={`bw-round-pages ${className}`} data-direction={direction ?? undefined} data-paged={pages > 1 || undefined}>
       {items.map(({ key, node }, index) => (
         <div key={key} className="bw-round-pages__item" data-off={pageOf(index) !== page || undefined}>
           {node}

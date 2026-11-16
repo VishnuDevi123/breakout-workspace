@@ -130,7 +130,7 @@ export default function RoundSetup({
       ) : (
         <div className="bw-session bw-session--setup">
           <section className="bw-session__column">
-            <TaskFields task={tasks.task} setTask={tasks.setTask} save={(next) => void tasks.save(next)} goalRows={5} />
+            <TaskFields task={tasks.task} setTask={tasks.setTask} save={(next) => void tasks.save(next)} />
           </section>
           <section className="bw-session__column">
             <ActivityList activities={tasks.activities} live={false} onSave={tasks.saveActivities} />
