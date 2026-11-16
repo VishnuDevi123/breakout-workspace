@@ -2361,7 +2361,8 @@ input[type="checkbox"] {
   border: 1px solid var(--bw-border);
   border-radius: var(--bw-radius-md);
   background: var(--bw-surface);
-  text-decoration: none;
+  font: inherit;
+  text-align: left;
   color: inherit;
 }
 .bw-link__icon {
@@ -2395,7 +2396,8 @@ input[type="checkbox"] {
 }
 .bw-link__open {
   flex: none;
-  color: var(--bw-muted-4);
+  font-size: var(--bw-fs-label);
+  color: var(--bw-muted);
 }
 .bw-activities-heading {
   display: flex;
@@ -4318,15 +4320,17 @@ button.bw-act-card__link:hover {
   container: room-page / inline-size;
 }
 
-/* The banner arrives slowly: the space opens, the content below slides down, the banner fades in.
+/* The banner arrives slowly: the space opens, the content below slides down, the banner fades in (LiveReveal).
    The negative margin cancels the page gap while closed, so nothing jumps at the start. */
 .bw-live-reveal {
   display: grid;
   grid-template-rows: 1fr;
   animation: bwLiveReveal 600ms var(--bw-ease) both;
 }
-.bw-live-reveal > * {
+/* A plain box, so the closed row is truly 0 tall (the banner's own padding would keep 20px). */
+.bw-live-reveal__inner {
   min-height: 0;
+  overflow: hidden;
 }
 @keyframes bwLiveReveal {
   from {
@@ -4340,9 +4344,31 @@ button.bw-act-card__link:hover {
     opacity: 1;
   }
 }
+/* Leaving: the same, backwards. */
+.bw-live-reveal--leaving {
+  animation: bwLiveHide 500ms var(--bw-ease) both;
+  pointer-events: none;
+}
+@keyframes bwLiveHide {
+  from {
+    grid-template-rows: 1fr;
+    margin-bottom: 0;
+    opacity: 1;
+  }
+  to {
+    grid-template-rows: 0fr;
+    margin-bottom: -16px;
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   @keyframes bwLiveReveal {
     from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwLiveHide {
+    to {
       opacity: 0;
     }
   }
@@ -5782,9 +5808,118 @@ button.bw-challenge-option__mark {
 .bw-play .bw-incoming__bar {
   background: linear-gradient(var(--bw-kind-letter), var(--bw-kind-letter)) left / 0% 100% no-repeat, var(--bw-kind-line);
 }
+/*
+ * The reveal, for the rooms: an announcer card with a drumroll, then the results
+ * build up slowly. A quiz shows its headline, then the leaderboard from last place
+ * up to the winner, then the answers; a poll's bars fill one after another.
+ */
+.bw-drumroll {
+  display: inline-flex;
+}
+.bw-drumroll > span {
+  animation: bwDrumroll 900ms ease-in-out infinite both;
+}
+.bw-drumroll > span:nth-child(2) {
+  animation-delay: 150ms;
+}
+.bw-drumroll > span:nth-child(3) {
+  animation-delay: 300ms;
+}
+@keyframes bwDrumroll {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.bw-incoming--announce {
+  padding: 52px 24px 48px;
+}
+.bw-incoming--announce .bw-incoming__kind {
+  animation-duration: 700ms;
+}
+.bw-incoming--announce .bw-incoming__title {
+  animation-delay: 400ms;
+}
+.bw-play__trophy {
+  font-size: 30px;
+  line-height: 1;
+  animation: bwTrophy 800ms var(--bw-ease) 200ms both;
+}
+@keyframes bwTrophy {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(4deg);
+  }
+}
+@keyframes bwRevealPop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes bwBarGrow {
+  from {
+    width: 0;
+  }
+}
+.bw-reveal > * {
+  animation: bwFadeIn 500ms var(--bw-ease) both;
+}
+.bw-reveal > .bw-play__score {
+  animation: bwRevealPop 600ms var(--bw-ease) both;
+}
+.bw-reveal .bw-leaderboard__row {
+  animation: bwRiseIn 500ms var(--bw-ease) both;
+  animation-delay: calc(700ms + (var(--bw-n) - 1 - var(--bw-i)) * 300ms);
+}
+.bw-reveal .bw-leaderboard__row--winner {
+  animation-name: bwRevealPop;
+}
+/* The board's frame shows at once; its rows bring it in. */
+.bw-reveal > .bw-leaderboard {
+  animation: none;
+}
+/* A quiz's answers come after the last leaderboard row. */
+.bw-reveal--quiz > .bw-tally {
+  animation-delay: calc(900ms + var(--bw-n) * 300ms);
+}
+/* A poll: each option rises, then its bar fills. */
+.bw-reveal--poll .bw-tally__option {
+  animation: bwRiseIn 500ms var(--bw-ease) both;
+  animation-delay: calc(300ms + var(--bw-i) * 180ms);
+}
+.bw-reveal--poll .bw-tally__option::before {
+  animation: bwBarGrow 1200ms var(--bw-ease) both;
+  animation-delay: calc(600ms + var(--bw-i) * 180ms);
+}
 @media (prefers-reduced-motion: reduce) {
   .bw-play__option::before {
     transition: none;
+  }
+  .bw-drumroll > span {
+    animation: none;
+  }
+  @keyframes bwTrophy {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwRevealPop {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes bwBarGrow {
+    from {
+      opacity: 0;
+    }
   }
   .bw-play .bw-incoming__bar {
     background-size: 100% 100%, auto;

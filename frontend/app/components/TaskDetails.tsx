@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { notice } from "@/lib/notice";
 import type { RoomTask } from "@/types/breakout";
 
 import { Card, SectionLabel } from "./ui";
@@ -57,7 +58,8 @@ export default function TaskDetails({
 
 /**
  * One host-supplied link: the site's icon, a readable title from the address and
- * the domain. A resource is a plain string, so anything that is not a URL shows as text.
+ * the domain. A tap copies the link: Zoom's app panel opens no browser tabs, so the
+ * participant pastes it into their browser. Anything that is not a URL shows as text.
  */
 function ResourceTile({ resource }: { resource: string }) {
   const url = parseLink(resource);
@@ -79,17 +81,41 @@ function ResourceTile({ resource }: { resource: string }) {
   const domain = url.hostname.replace(/^www\./, "");
   const title = linkTitle(url);
   return (
-    <a className="bw-link bw-card-interactive" href={url.href} target="_blank" rel="noreferrer" title={url.href}>
+    <button
+      type="button"
+      className="bw-link bw-card-interactive"
+      title={`Copy ${url.href}`}
+      onClick={async () => {
+        const copied = await copyText(url.href);
+        notice(copied ? "Link copied. Paste it in your browser." : "Couldn't copy the link.", { icon: copied ? "🔗" : "⚠️" });
+      }}
+    >
       <Favicon origin={url.origin} />
       <span className="bw-link__text">
         <span className="bw-link__title">{title ?? domain}</span>
         {title ? <span className="bw-link__domain">{domain}</span> : null}
       </span>
-      <span className="bw-link__open" aria-hidden>
-        ↗
-      </span>
-    </a>
+      <span className="bw-link__open">Copy</span>
+    </button>
   );
+}
+
+/** Puts text on the clipboard; the old copy command where the Clipboard API is missing or refused. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    return copied;
+  }
 }
 
 /** The site's own icon; the link emoji when it has none or it cannot load. */

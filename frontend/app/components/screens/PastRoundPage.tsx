@@ -146,6 +146,10 @@ function PastRoundBody({
         </section>
 
         <div className="bw-session__column">
+          {/* As tall as the "Task" label, so the people card lines up with the task card. */}
+          <span className="bw-section-label bw-room-layout__spacer" aria-hidden>
+            &nbsp;
+          </span>
           <RoomPeople heading="In this room" people={people} selfUUID={participantUUID} />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { memberStatus } from "@/lib/activity-kinds";
+import { notice } from "@/lib/notice";
 import { roomMembers } from "@/lib/participant-status";
 import { useRemainingSec } from "@/lib/round-clock";
 import { roomTheme } from "@/lib/room-theme";
@@ -18,6 +19,7 @@ import ActivityCards from "../ActivityCards";
 import AnswerModal from "../AnswerModal";
 import ChallengeBanner from "../ChallengeBanner";
 import ChallengeOverlay from "../ChallengeOverlay";
+import LiveReveal from "../LiveReveal";
 import PageFrame from "../PageFrame";
 import RoomBar from "../RoomBar";
 import RoomPeople, { MEMBER_TONES } from "../RoomPeople";
@@ -95,6 +97,7 @@ export default function ParticipantWorkspace({
     refreshKey: `${live?.challengeRevision ?? 0}:${live?.roomRevisions[room.id] ?? 0}`,
   });
   const [introDoneFor, setIntroDoneFor] = useState<string | null>(null);
+  const [announcedFor, setAnnouncedFor] = useState<string | null>(null);
   const [seenRunning, setSeenRunning] = useState<string | null>(null);
   const [closedKey, setClosedKey] = useState<string | null>(null);
   if (challenge && !challenge.revealed && seenRunning !== challenge.id) setSeenRunning(challenge.id);
@@ -113,10 +116,21 @@ export default function ParticipantWorkspace({
         participantUUID={participantUUID}
         intro={!challenge.revealed && introDoneFor !== challenge.id}
         onIntroDone={setIntroDoneFor}
+        announce={announcedFor !== challenge.id}
+        onAnnounceDone={setAnnouncedFor}
         onAnswer={answer}
         onClose={() => setClosedKey(challengeKey)}
       />
     ) : null;
+
+  // The banner above the task while the poll or quiz runs: slim once the room has
+  // locked every question, gone (sliding away) at the reveal or when time is up.
+  const challengeSec = useRemainingSec(challenge?.endsAt ?? 0);
+  const bannerDone = Boolean(challenge?.room?.locks.every((lock) => lock !== null));
+  const banner =
+    challenge?.room && !challenge.revealed && challengeSec !== 0
+      ? { key: `${challenge.id}:${bannerDone ? "done" : "live"}`, value: { challenge, done: bannerDone } }
+      : null;
 
   const roomStatus = useRoomStatus({ live, roomId: room.id, participantUUID });
   // A tap that sets a status says so, with Undo back to what it was.
@@ -124,14 +138,8 @@ export default function ParticipantWorkspace({
     const previous = roomStatus.current;
     if (!(await roomStatus.choose(status)) || status === "onTrack") return;
     const message = STATUS_TOASTS[status];
-    toast(message.text, {
+    notice(message.text, {
       icon: message.icon,
-      position: "bottom-center",
-      duration: 4000,
-      closeButton: false,
-      // Inline, so it wins over the Toaster's rich colours.
-      style: { background: "#0f172a", borderColor: "#0f172a", color: "#f8fafc" },
-      actionButtonStyle: { background: "none", fontWeight: 600, color: "#a5b4fc" },
       action: { label: "Undo", onClick: () => void roomStatus.choose(previous) },
     });
   }
@@ -185,9 +193,10 @@ export default function ParticipantWorkspace({
         bar={<RoomBar room={room} live={live} onHome={onBack} />}
       >
         <div className="bw-room-page">
-          {challenge?.room && !challenge.revealed ? (
-            <ChallengeBanner key={challenge.id} challenge={challenge} onOpen={() => setClosedKey(null)} />
-          ) : null}
+          <LiveReveal
+            item={banner}
+            render={(shown) => <ChallengeBanner {...shown} onOpen={() => setClosedKey(null)} />}
+          />
           <div className="bw-room-layout">
             <section className="bw-session__column">
               <TaskDetails

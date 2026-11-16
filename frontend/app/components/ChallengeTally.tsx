@@ -47,7 +47,7 @@ export default function ChallengeTally({
             const isOwn = ownAnswer === optionIndex;
             const tone = isRight ? " bw-tally__option--right-solid" : isOwn ? " bw-tally__option--wrong" : "";
             return (
-              <li key={optionIndex} className={`bw-tally__option${tone}`}>
+              <li key={optionIndex} className={`bw-tally__option${tone}`} style={{ "--bw-i": optionIndex } as CSSProperties}>
                 {/* A shape as well as a colour, so a green or red room still tells right from wrong. */}
                 {isRight ? <span className="bw-tally__icon bw-tally__icon--right" aria-label="Right">✓</span> : null}
                 {isOwn && !isRight ? <span className="bw-tally__icon bw-tally__icon--wrong" aria-label="Wrong">✕</span> : null}
@@ -63,7 +63,7 @@ export default function ChallengeTally({
             <li
               key={optionIndex}
               className={`bw-tally__option${isRight ? " bw-tally__option--right" : ""}${ownPick ? " bw-tally__option--own" : ""}`}
-              style={{ "--bw-share": `${(rooms.length / roomCount) * 100}%` } as CSSProperties}
+              style={{ "--bw-share": `${(rooms.length / roomCount) * 100}%`, "--bw-i": optionIndex } as CSSProperties}
             >
               {isRight ? <span className="bw-tally__icon bw-tally__icon--right" aria-label="Right answer" title="Right answer">✓</span> : null}
               <span className="bw-tally__letter">{optionLetter(optionIndex)}</span>

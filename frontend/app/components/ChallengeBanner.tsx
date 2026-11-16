@@ -25,78 +25,56 @@ const TEXT: Record<
 
 /**
  * The host's running poll or quiz across the top of the room page: the question,
- * the time left and the way in. Once the room has locked every question it shrinks
- * to one line; it is gone when the time runs out.
+ * the time left and the way in. Once the room has locked every question it is one
+ * slim line ("done"). The room page slides it in and out (LiveReveal).
  */
 export default function ChallengeBanner({
   challenge,
+  done,
   onOpen,
 }: {
   challenge: ChallengeView;
+  /** The room has locked every question. */
+  done: boolean;
   onOpen: () => void;
 }) {
   const remainingSec = useRemainingSec(challenge.endsAt);
-  if (remainingSec === 0) return null;
-
   const text = TEXT[challenge.kind];
-  const submitted = Boolean(
-    challenge.room?.locks.every((lock) => lock !== null),
-  );
   const className = `bw-live-banner bw-live-banner--${challenge.kind}`;
 
-  // The wrapper opens the space slowly on launch (keyed by challenge, so once each);
-  // the slim line after the room submits fades in place.
-  if (submitted) {
+  if (done) {
     return (
-      <div className="bw-live-reveal">
-        <div
-          className={`${className} bw-live-banner--done bw-swap-in`}
-          role="status"
-        >
-          <span className="bw-live-banner__tick" aria-hidden>
-            ✓
-          </span>
-          <span className="bw-live-banner__done">
-            {text.done} · waiting for results
-          </span>
-        </div>
+      <div className={`${className} bw-live-banner--done`} role="status">
+        <span className="bw-live-banner__tick" aria-hidden>
+          ✓
+        </span>
+        <span className="bw-live-banner__done">{text.done} · waiting for results</span>
       </div>
     );
   }
 
   return (
-    <div className="bw-live-reveal">
-      <section className={className} aria-label={text.badge}>
-        <div className="bw-live-banner__text">
-          <span className="bw-live-banner__badge">
-            {/* The host's Live dot, pulsing the same way. */}
-            <StatusDot
-              color="var(--bw-red)"
-              round
-              pulse
-              className="bw-live-banner__dot"
-            />
-            {text.badge}
-          </span>
-          <span className="bw-live-banner__title" title={challenge.title}>
-            {challenge.title}
-          </span>
-          <span className="bw-live-banner__hint">{text.hint}</span>
+    <section className={className} aria-label={text.badge}>
+      <div className="bw-live-banner__text">
+        <span className="bw-live-banner__badge">
+          {/* The host's Live dot, pulsing the same way. */}
+          <StatusDot color="var(--bw-red)" round pulse className="bw-live-banner__dot" />
+          {text.badge}
+        </span>
+        <span className="bw-live-banner__title" title={challenge.title}>
+          {challenge.title}
+        </span>
+        <span className="bw-live-banner__hint">{text.hint}</span>
+      </div>
+      {remainingSec !== null ? (
+        <div className="bw-live-banner__clock">
+          <span className="bw-live-banner__time">{formatClock(remainingSec)}</span>
+          <span className="bw-live-banner__left">left to {challenge.kind === "poll" ? "vote" : "answer"}</span>
         </div>
-        {remainingSec !== null ? (
-          <div className="bw-live-banner__clock">
-            <span className="bw-live-banner__time">
-              {formatClock(remainingSec)}
-            </span>
-            <span className="bw-live-banner__left">
-              left to {challenge.kind === "poll" ? "vote" : "answer"}
-            </span>
-          </div>
-        ) : null}
-        <Button className="bw-live-banner__action" onClick={onOpen}>
-          {text.action} ›
-        </Button>
-      </section>
-    </div>
+      ) : null}
+      <Button className="bw-live-banner__action" onClick={onOpen}>
+        {text.action} ›
+      </Button>
+    </section>
   );
 }
