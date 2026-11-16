@@ -3169,11 +3169,6 @@ a.bw-resource-row:hover {
   border-color: var(--bw-accent);
   outline: none;
 }
-.bw-results {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 /* Back is a quiet text link above the page, not a button competing with the title. */
 .bw-results__back {
   align-self: flex-start;
@@ -3190,33 +3185,6 @@ a.bw-resource-row:hover {
 }
 .bw-results__back:hover {
   color: var(--bw-accent-deep);
-}
-.bw-results__heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--bw-border);
-}
-.bw-results__heading-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.bw-results__question {
-  margin: 0;
-  font-size: var(--bw-fs-section);
-  font-weight: 600;
-  line-height: 1.4;
-}
-.bw-results__details {
-  margin: 0;
-  font-size: var(--bw-fs-meta);
-  line-height: 1.5;
-  color: var(--bw-muted);
-  white-space: pre-wrap;
 }
 .bw-results__meta {
   flex: none;
@@ -3590,22 +3558,6 @@ button.bw-checklist__row:focus-visible {
   font-size: var(--bw-fs-meta);
   color: var(--bw-muted);
 }
-.bw-results__answers {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.bw-results__answer {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.bw-results__answer-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
 /* The submitted answer sits in its own box, apart from the name and status. */
 .bw-results__answer-text {
   margin: 0;
@@ -3743,7 +3695,8 @@ button.bw-checklist__row:focus-visible {
 /* One activity as the host sees it (ActivityCard), tinted by kind: place and kind,
    the question, then its details (edit) or the room's progress (monitor).
    Every line ends in "…" rather than leaving the card. */
-.bw-act-card {
+.bw-act-card,
+.bw-act-head {
   --bw-act-tint: var(--bw-individual-tint);
   --bw-act-line: var(--bw-individual-line);
   --bw-act-bar: #eab308;
@@ -3760,7 +3713,8 @@ button.bw-checklist__row:focus-visible {
   text-align: left;
   color: var(--bw-ink);
 }
-.bw-act-card--ideaBoard {
+.bw-act-card--ideaBoard,
+.bw-act-head--ideaBoard {
   --bw-act-tint: var(--bw-shared-tint);
   --bw-act-line: var(--bw-shared-line);
   --bw-act-bar: #14b8a6;
@@ -3870,6 +3824,267 @@ button.bw-act-card__link:hover {
   text-overflow: ellipsis;
   font-size: var(--bw-fs-meta);
   color: var(--bw-muted);
+}
+/* An activity's own page (ActivityResultsPage): header tinted like the activity. */
+.bw-act-head {
+  gap: 4px;
+  padding: 20px 24px;
+}
+.bw-act-head__type {
+  font-size: var(--bw-fs-meta);
+  font-weight: 600;
+  color: var(--bw-muted-3);
+}
+.bw-act-head__question {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.bw-act-head__details {
+  margin: 0;
+  font-size: var(--bw-fs-body);
+  line-height: 1.5;
+  color: var(--bw-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bw-act-head .bw-act-card__progress {
+  margin-top: 14px;
+}
+.bw-act-head__waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+  margin-top: 8px;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-act-head__person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.bw-act-head__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* A person's initials in their own colour on a pale disc of it. */
+.bw-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--bw-radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+}
+.bw-answer .bw-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: var(--bw-fs-label);
+}
+/* "Answers 2" or "Ideas 4", with the list's control on the right. */
+.bw-act-list__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bw-act-list__count {
+  flex: 1;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-ideas__person .bw-act-list__count {
+  flex: none;
+}
+.bw-act-list__control {
+  flex: none;
+  max-width: 50%;
+  padding: 6px 12px;
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-surface);
+  font: inherit;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-ink);
+  cursor: pointer;
+}
+.bw-act-list__control:hover,
+.bw-act-list__control[aria-pressed="true"] {
+  border-color: var(--bw-accent);
+}
+.bw-act-list__empty {
+  margin: 0;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+/* One submitted answer. The latest has a bar in the activity's colour on its left. */
+.bw-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid var(--bw-border);
+  border-radius: 12px;
+  background: var(--bw-surface);
+}
+.bw-answer--latest {
+  border-color: var(--bw-individual-line);
+  box-shadow: inset 4px 0 0 #eab308;
+}
+.bw-answer__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.bw-answer__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-body);
+  font-weight: 600;
+}
+.bw-answer__time {
+  flex: none;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted-4);
+}
+.bw-answer__text {
+  margin: 0;
+  padding-left: 44px;
+  font-size: var(--bw-fs-body);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@container frame-page (max-width: 599px) {
+  .bw-answer__text {
+    padding-left: 0;
+  }
+}
+/* Idea notes (IdeaCard), the same on the room's board and the host's page. */
+.bw-ideas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+}
+.bw-ideas__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bw-ideas__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--bw-fs-body);
+}
+.bw-idea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 150px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.bw-idea--latest {
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 1px #14b8a6;
+}
+.bw-idea__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-body);
+  font-weight: 600;
+}
+/* Six lines at most; the full text is on hover. */
+.bw-idea__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--bw-fs-body);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.bw-idea__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.bw-idea__author {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted-3);
+}
+.bw-ideas__person .bw-idea__author {
+  flex: 0 1 auto;
+  font-size: var(--bw-fs-body);
+  color: var(--bw-ink);
+}
+.bw-idea__footer--end {
+  justify-content: flex-end;
+  gap: 12px;
+}
+/* Edit and Remove between the author and the number; the author keeps at least "You". */
+.bw-idea__actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+.bw-idea__actions ~ .bw-idea__number {
+  margin-left: 0;
+}
+.bw-idea__footer .bw-idea__author {
+  min-width: 3.2ch;
+}
+.bw-idea__number {
+  flex: none;
+  font-size: var(--bw-fs-label);
+  color: var(--bw-muted-4);
+}
+.bw-room-nav__back {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--bw-fs-body);
+  font-weight: 600;
+  color: var(--bw-accent);
+  cursor: pointer;
+}
+.bw-room-nav__back:hover {
+  color: var(--bw-accent-deep);
 }
 /* Asking to remove an activity, in its card's place. */
 .bw-activity-card--confirm {
@@ -4240,53 +4455,6 @@ button.bw-act-card__link:hover {
 /* Idea board */
 /* Fixed-size square notes: they wrap to fewer columns instead of stretching and
    shrinking with the panel. */
-.bw-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 150px);
-  gap: 12px;
-  align-items: start;
-}
-.bw-note {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  aspect-ratio: 1;
-  padding: 9px 10px;
-  border-radius: var(--bw-radius-md);
-  box-shadow: 0 2px 6px rgb(28 28 30 / 8%);
-}
-.bw-note__title {
-  font-size: var(--bw-fs-meta);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--bw-ink);
-  overflow-wrap: anywhere;
-}
-.bw-note__text {
-  flex: 1;
-  margin: 0;
-  font-size: var(--bw-fs-meta);
-  font-weight: 500;
-  line-height: 1.4;
-  color: var(--bw-ink);
-  overflow-wrap: anywhere;
-}
-.bw-note__footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.bw-note__author {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--bw-fs-meta);
-  font-weight: 700;
-  color: var(--bw-ink);
-}
 .bw-note__action {
   padding: 0;
   border: 0;
@@ -5457,10 +5625,9 @@ button.bw-challenge-option__mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The background is each person's colour (personColor); the border cuts overlapping pills apart. */
+  /* Colours are the person's own (PersonPill); the border cuts overlapping pills apart. */
   border: 2px solid var(--bw-room);
   border-radius: var(--bw-radius-pill);
-  color: #ffffff;
   font-size: 10px;
   font-weight: 600;
   animation: bwRiseIn var(--bw-motion-fast) var(--bw-ease) both;

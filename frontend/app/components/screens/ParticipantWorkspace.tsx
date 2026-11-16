@@ -69,9 +69,9 @@ export default function ParticipantWorkspace({
   useEffect(() => {
     if (removedWhileOpen) toast("Your host removed that activity.");
   }, [removedWhileOpen]);
-  const people = roomMembers({ room, live, participantUUID }).map(({ participantUUID: uuid, name }) => {
+  const people = roomMembers({ room, live, participantUUID }).map(({ participantUUID: uuid, name, fullName }) => {
     const status = activities.length > 0 ? memberStatus(activities, view, uuid) : null;
-    return { participantUUID: uuid, name, status, done: status === "Submitted" };
+    return { participantUUID: uuid, name, fullName, status, done: status === "Submitted" };
   });
 
   const openActivity = openIndex === -1 ? null : activities[openIndex];

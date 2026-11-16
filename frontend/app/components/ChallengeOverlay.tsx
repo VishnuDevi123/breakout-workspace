@@ -3,11 +3,11 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { CHALLENGE_KINDS, currentQuestion, placeLabel, placeOf, winnerHeadline } from "@/lib/challenges";
-import { initialsFrom, personColor } from "@/lib/participant-status";
 import { roomTheme } from "@/lib/room-theme";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView, LiveParticipant, RoomChallengeAnswers } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
 import ChallengeLeaderboard from "./ChallengeLeaderboard";
 import ChallengeScrollBody from "./ChallengeScrollBody";
 import ChallengeTally from "./ChallengeTally";
@@ -197,9 +197,7 @@ function Answering({
               <span className="bw-play__option-text">{option}</span>
               <span className="bw-play__who">
                 {leaning.map((uuid) => (
-                  <span key={uuid} className="bw-play__initials" style={{ background: personColor(uuid) }} title={nameOf(uuid)}>
-                    {initialsFrom(nameOf(uuid))}
-                  </span>
+                  <PersonPill key={uuid} participantUUID={uuid} name={nameOf(uuid)} className="bw-play__initials" label={nameOf(uuid)} />
                 ))}
               </span>
               {mine ? <span className="bw-play__check" aria-hidden="true">✓</span> : null}

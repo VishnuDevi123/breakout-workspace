@@ -31,3 +31,23 @@ export function useRemainingSec(endsAt: number): number | null {
 
   return endsAt ? Math.max(0, Math.round((endsAt - now) / 1000)) : null;
 }
+
+/** The time now, refreshed every `everyMs`, for labels such as "2 min ago". */
+export function useNow(everyMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), everyMs);
+    return () => clearInterval(id);
+  }, [everyMs]);
+
+  return now;
+}
+
+/** "just now", "5 min ago", "2 h ago". */
+export function timeAgo(at: number, now: number): string {
+  const minutes = Math.floor(Math.max(0, now - at) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  return `${Math.floor(minutes / 60)} h ago`;
+}

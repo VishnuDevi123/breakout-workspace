@@ -2,15 +2,8 @@
 
 import type { DragEvent } from "react";
 
-import { ACTIVITY_KINDS } from "@/lib/activity-kinds";
+import { ACTIVITY_KINDS, type RoomProgress } from "@/lib/activity-kinds";
 import type { Activity } from "@/types/breakout";
-
-/** How far the rooms are: the bar's share and the line beside it. */
-export interface ActivityProgressBar {
-  done: number;
-  total: number;
-  text: string;
-}
 
 type Props = {
   activity: Activity;
@@ -28,7 +21,7 @@ type Props = {
   | {
       /** The host's live room page: how far the room is, and a way into its answers. */
       mode: "monitor";
-      progress: ActivityProgressBar;
+      progress: RoomProgress;
       onOpen: () => void;
     }
 );
@@ -60,8 +53,6 @@ export default function ActivityCard(props: Props) {
   );
 
   if (props.mode === "monitor") {
-    const { progress } = props;
-    const share = progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0;
     return (
       <button type="button" className={`${className} bw-act-card--monitor`} onClick={props.onOpen}>
         <span className="bw-act-card__header">
@@ -69,12 +60,7 @@ export default function ActivityCard(props: Props) {
           <span className="bw-act-card__link">{OPEN_LABELS[activity.kind]} ›</span>
         </span>
         {question}
-        <span className="bw-act-card__progress">
-          <span className="bw-act-card__track" aria-hidden>
-            <span className="bw-act-card__bar" style={{ width: `${share * 100}%` }} />
-          </span>
-          <span className="bw-act-card__count">{progress.text}</span>
-        </span>
+        <ProgressLine progress={props.progress} />
       </button>
     );
   }
@@ -111,5 +97,18 @@ export default function ActivityCard(props: Props) {
         </span>
       ) : null}
     </div>
+  );
+}
+
+/** The kind-coloured bar and its count; inside an element that sets the kind's tint. */
+export function ProgressLine({ progress }: { progress: RoomProgress }) {
+  const share = progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0;
+  return (
+    <span className="bw-act-card__progress">
+      <span className="bw-act-card__track" aria-hidden>
+        <span className="bw-act-card__bar" style={{ width: `${share * 100}%` }} />
+      </span>
+      <span className="bw-act-card__count">{progress.text}</span>
+    </span>
   );
 }

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { noteTint } from "@/lib/activity-kinds";
 import type { useRoomResponses } from "@/lib/use-room-responses";
 import type { CheckListItem, IdeaBoardActivity, IdeaNote } from "@/types/breakout";
 
 import ActivityPrompt from "./ActivityPrompt";
+import IdeaCard from "./IdeaCard";
 import RoomPeople from "./RoomPeople";
 import SharedChecklist from "./SharedChecklist";
 import { Button } from "./ui";
@@ -25,7 +27,7 @@ export default function IdeaBoardPanel({
   onBack,
 }: {
   activity: IdeaBoardActivity;
-  members: { participantUUID: string; name: string }[];
+  members: { participantUUID: string; name: string; fullName?: string }[];
   participantUUID: string;
   checklist: CheckListItem[];
   responses: ReturnType<typeof useRoomResponses>;
@@ -56,7 +58,7 @@ export default function IdeaBoardPanel({
         </button>
         <ActivityPrompt activity={activity} />
 
-        <div className="bw-board">
+        <div className="bw-ideas">
           {notes.map((note) => (
             <NoteCard
               key={note.id}
@@ -116,7 +118,7 @@ function NoteCard({
 
   if (editing) {
     return (
-      <div className="bw-note" style={{ background: note.color }}>
+      <div className="bw-idea" style={noteTint(note.color)}>
         <input className="bw-note__title-input" value={title} onChange={(event) => setTitle(event.target.value)} />
         <textarea
           className="bw-note__text-input"
@@ -124,8 +126,7 @@ function NoteCard({
           value={description}
           onChange={(event) => setDescription(event.target.value)}
         />
-        <div className="bw-note__footer">
-          <div style={{ flex: 1 }} />
+        <div className="bw-idea__footer bw-idea__footer--end">
           <button className="bw-note__action" onClick={() => setEditing(false)}>Cancel</button>
           <button
             className="bw-note__action bw-note__action--strong"
@@ -140,36 +141,39 @@ function NoteCard({
   }
 
   return (
-    <div className="bw-note" style={{ background: note.color }}>
-      <span className="bw-note__title">{note.title}</span>
-      <p className="bw-note__text">{note.description}</p>
-      <div className="bw-note__footer">
-        <span className="bw-note__author">{own ? "You" : note.authorName}</span>
-        <div style={{ flex: 1 }} />
-        {own && confirming ? (
-          <>
-            <button className="bw-note__action" onClick={() => setConfirming(false)}>Keep</button>
-            <button className="bw-note__action bw-note__action--danger" onClick={() => void onRemove()}>
-              Remove?
-            </button>
-          </>
-        ) : null}
-        {own && !confirming ? (
-          <>
-            <button
-              className="bw-note__action"
-              onClick={() => {
-                setTitle(note.title);
-                setDescription(note.description);
-                setEditing(true);
-              }}
-            >
-              Edit
-            </button>
-            <button className="bw-note__action" onClick={() => setConfirming(true)}>Remove</button>
-          </>
-        ) : null}
-      </div>
-    </div>
+    <IdeaCard
+      note={note}
+      authorLabel={own ? "You" : undefined}
+      actions={
+        own ? (
+          confirming ? (
+            <>
+              <button className="bw-note__action" onClick={() => setConfirming(false)}>
+                Keep
+              </button>
+              <button className="bw-note__action bw-note__action--danger" onClick={() => void onRemove()}>
+                Remove?
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="bw-note__action"
+                onClick={() => {
+                  setTitle(note.title);
+                  setDescription(note.description);
+                  setEditing(true);
+                }}
+              >
+                Edit
+              </button>
+              <button className="bw-note__action" onClick={() => setConfirming(true)}>
+                Remove
+              </button>
+            </>
+          )
+        ) : null
+      }
+    />
   );
 }

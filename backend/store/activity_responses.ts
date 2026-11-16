@@ -174,7 +174,7 @@ export async function submitAnswer(room: RoomRef, activityId: string, request: u
   return changeRoom(room, participantUUID, (record) => {
     const answers = (record.answers[activityId] ??= {});
     if (text) {
-      answers[participantUUID] = { participantUUID, text, status };
+      answers[participantUUID] = { participantUUID, text, status, savedAt: Date.now() };
     } else {
       delete answers[participantUUID];
     }
@@ -202,6 +202,7 @@ export async function addIdea(room: RoomRef, activityId: string, request: unknow
       title: `Idea ${number}`,
       description,
       color: NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)],
+      createdAt: Date.now(),
     });
   });
 }

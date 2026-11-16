@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { emptyDraft, listNames, type ChallengeKind } from "@/lib/challenges";
 import { adjustRoundTime } from "@/lib/execution-api";
-import { initialsFrom } from "@/lib/participant-status";
 import { assignParticipantToRoom, autoAssignParticipantsEvenly } from "@/lib/room-plan-assignments";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { useRoundChallenges } from "@/lib/use-challenges";
@@ -27,6 +26,7 @@ import { MAX_ROOMS } from "@/types/breakout";
 
 import { toast } from "sonner";
 
+import PersonPill from "./PersonPill";
 import ActivityResultsPage from "./ActivityResultsPage";
 import ChallengeEditor from "./ChallengeEditor";
 import ChallengeResultsModal from "./ChallengeResultsModal";
@@ -355,7 +355,13 @@ export default function LiveRound({
         {page === "rooms" && openRoom && openActivity ? (
           <ActivityResultsPage
             activity={openActivity}
-            roomName={openRoom.name}
+            room={openRoom}
+            position={round.rooms.findIndex((room) => room.id === openRoom.id)}
+            roomCount={round.rooms.length}
+            onStep={(step) => {
+              const next = round.rooms[round.rooms.findIndex((room) => room.id === openRoom.id) + step];
+              if (next) goTo({ kind: "activity", roomId: next.id, activityId: openActivity.id });
+            }}
             people={peopleIn(openRoom.id)}
             results={results}
             onBack={() => goTo({ kind: "room", roomId: openRoom.id })}
@@ -571,15 +577,13 @@ function LiveRoomCard({
       {members.length > 0 ? (
         <div className="bw-initials-list">
           {members.map((member) => (
-            <span
+            <PersonPill
               key={member.participantUUID}
+              participantUUID={member.participantUUID}
+              name={member.name}
               className="bw-initials"
-              title={member.name}
-              aria-label={member.name}
-              role="img"
-            >
-              {initialsFrom(member.name)}
-            </span>
+              label={member.name}
+            />
           ))}
         </div>
       ) : (

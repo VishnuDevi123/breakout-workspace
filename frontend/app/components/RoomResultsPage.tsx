@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { initialsFrom, personColor } from "@/lib/participant-status";
+import { roomProgress } from "@/lib/activity-kinds";
 import type { Activity, CheckListItem, PlannedRoom, RoomResponsesHostView } from "@/types/breakout";
 
-import ActivityCard, { type ActivityProgressBar } from "./ActivityCard";
+import PersonPill from "./PersonPill";
+import ActivityCard from "./ActivityCard";
+import RoomStepper from "./RoomStepper";
 import SharedChecklist from "./SharedChecklist";
 import { Card, SectionLabel, StatusDot } from "./ui";
 
@@ -71,31 +73,7 @@ export default function RoomResultsPage({
   return (
     <div className="bw-room-page">
       <div className="bw-room-nav">
-        <div className="bw-room-nav__pager">
-          <button
-            type="button"
-            className="bw-room-nav__step"
-            aria-label="Previous room"
-            disabled={position <= 0}
-            onClick={() => onStep(-1)}
-          >
-            ‹
-          </button>
-          <StatusDot color={room.dot} />
-          <span className="bw-room-nav__name" title={room.name}>
-            {room.name}
-          </span>
-          <span className="bw-room-nav__of">of {roomCount}</span>
-          <button
-            type="button"
-            className="bw-room-nav__step"
-            aria-label="Next room"
-            disabled={position >= roomCount - 1}
-            onClick={() => onStep(1)}
-          >
-            ›
-          </button>
-        </div>
+        <RoomStepper room={room} position={position} roomCount={roomCount} onStep={onStep} />
         <button type="button" className="bw-room-nav__all" onClick={onBack}>
           All rooms
         </button>
@@ -137,7 +115,7 @@ export default function RoomResultsPage({
               mode="monitor"
               activity={activity}
               index={index}
-              progress={progressOf(activity, people.length, results)}
+              progress={roomProgress(activity, people.length, results)}
               onOpen={() => onOpenActivity(activity.id)}
             />
           ))}
@@ -161,16 +139,13 @@ function PersonRow({
   onMenu: (open: boolean) => void;
   onMove: (roomName: string | null) => void;
 }) {
-  const color = personColor(person.participantUUID);
   const away = person.presence === "left";
   // Someone who left the meeting cannot be moved; nobody can be moved once rooms close.
   const movable = otherRooms.length > 0 && person.presence !== null && !away;
 
   return (
     <div className={`bw-room-person${away ? " bw-room-person--away" : ""}`}>
-      <span className="bw-initials bw-room-person__avatar" style={{ color, background: `${color}1f` }} aria-hidden>
-        {initialsFrom(person.name)}
-      </span>
+      <PersonPill participantUUID={person.participantUUID} name={person.name} className="bw-initials bw-room-person__avatar" />
       <span className="bw-room-person__text">
         <span className="bw-room-person__name" title={person.name}>
           {person.name}
@@ -288,22 +263,3 @@ function MoveMenu({
   );
 }
 
-/** How far the room is on one activity: submitted answers, or people who added an idea. */
-function progressOf(
-  activity: Activity,
-  peopleCount: number,
-  results: RoomResponsesHostView | null,
-): ActivityProgressBar {
-  if (activity.kind === "individual") {
-    const answers = Object.values(results?.answers[activity.id] ?? {});
-    const submitted = answers.filter((answer) => answer.status === "submitted").length;
-    return { done: submitted, total: peopleCount, text: `${submitted} of ${peopleCount} submitted` };
-  }
-  const notes = results?.ideas[activity.id] ?? [];
-  const authors = new Set(notes.map((note) => note.participantUUID)).size;
-  return {
-    done: authors,
-    total: peopleCount,
-    text: `${notes.length} ${notes.length === 1 ? "idea" : "ideas"} from ${authors} ${authors === 1 ? "person" : "people"}`,
-  };
-}

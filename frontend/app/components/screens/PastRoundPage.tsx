@@ -123,9 +123,10 @@ function PastRoundBody({
   const { room, task, activities, view } = state.round;
   // Names from the live store while those people are still in the meeting.
   const people = room.participantUUIDs.map((uuid) => {
-    const name = uuid === participantUUID ? "You" : live?.participants.find((p) => p.participantUUID === uuid)?.name || "Participant";
+    const fullName = live?.participants.find((p) => p.participantUUID === uuid)?.name || "Participant";
+    const name = uuid === participantUUID ? "You" : fullName;
     const status = activities.length > 0 ? memberStatus(activities, view, uuid) : null;
-    return { participantUUID: uuid, name, status, done: status === "Submitted" };
+    return { participantUUID: uuid, name, fullName, status, done: status === "Submitted" };
   });
 
   return (

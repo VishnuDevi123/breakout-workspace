@@ -397,16 +397,17 @@ export interface SaveCurrentTemplateRequest {
 
 // ---- Responses: participant-written, one record per (parentUUID, roundId, roomId) ----
 
+/** Base hues; screens show each note as a light tint of its hue (noteTint), never the hue itself. */
 export const NOTE_COLORS = [
-  "#fccf0687",
-  "#06ead7",
-  "#eef1ff",
-  "#e3f7d4",
-  "#ff9999",
-  "#0fbcb0",
-  "#e58cc9",
-  "#7ed321",
-  "#a4c484",
+  "#facc15",
+  "#2dd4bf",
+  "#818cf8",
+  "#4ade80",
+  "#f87171",
+  "#f472b6",
+  "#fb923c",
+  "#38bdf8",
+  "#a3e635",
 ] as const;
 export type NoteColor = (typeof NOTE_COLORS)[number];
 
@@ -418,6 +419,8 @@ export interface IndividualAnswer {
   participantUUID: string;
   text: string;
   status: AnswerStatus;
+  /** Epoch ms of the last save. Missing on answers saved before it was recorded. */
+  savedAt?: number;
 }
 
 /** A sticky note on an idea board. Only its author may edit or remove it. */
@@ -430,6 +433,8 @@ export interface IdeaNote {
   description: string;
   /** Server-owned: picked on create, never changed by edits. */
   color: NoteColor;
+  /** Epoch ms when the note was added. Missing on notes added before it was recorded. */
+  createdAt?: number;
 }
 
 export interface RoomResponses {

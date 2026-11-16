@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
-import { initialsFrom } from "@/lib/participant-status";
 import type { PlannedRoom } from "@/types/breakout";
 
+import PersonPill from "./PersonPill";
 import { Button, Spinner } from "./ui";
 
 /** Collapsed: the handle and the title row only. */
@@ -229,9 +229,7 @@ export default function NotPlacedSheet({
 function SheetRow({ person, busy, children }: { person: SheetPerson; busy: boolean; children: ReactNode }) {
   return (
     <li className="bw-sheet__person">
-      <span className="bw-initials" title={person.name} aria-hidden>
-        {initialsFrom(person.name)}
-      </span>
+      <PersonPill participantUUID={person.participantUUID} name={person.name} className="bw-initials" />
       <span className="bw-sheet__name" title={person.name}>
         {person.name}
       </span>
