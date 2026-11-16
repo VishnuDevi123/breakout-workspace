@@ -295,3 +295,42 @@ export async function pruneResponses(tasks: RoundTasks): Promise<void> {
     if (removed) await bumpRoomRevision(tasks.parentUUID, roomId);
   }
 }
+
+/**
+ * Files a rejoined person's answers and idea notes under their new id in every room
+ * of one round; text, status and times stay as they are. When both ids hold an answer
+ * to the same activity, the later save wins. Returns the rooms that changed.
+ */
+export async function renameInResponses(parentUUID: string, roundId: string, retired: string[], participantUUID: string): Promise<string[]> {
+  const old = new Set(retired);
+  const changedRooms: string[] = [];
+  const records = await readItems<RoomResponses>(parentUUID, roundItem(roundId, "room", ""));
+  for (const { roomId } of records) {
+    await changeItem<RoomResponses>(parentUUID, roundItem(roundId, "room", roomId), (record) => {
+      if (!record) return null;
+      let changed = false;
+      for (const byParticipant of Object.values(record.answers)) {
+        for (const id of Object.keys(byParticipant)) {
+          if (!old.has(id)) continue;
+          const answer = byParticipant[id];
+          const current = byParticipant[participantUUID];
+          if (!current || (answer.savedAt ?? 0) > (current.savedAt ?? 0)) {
+            byParticipant[participantUUID] = { ...answer, participantUUID };
+          }
+          delete byParticipant[id];
+          changed = true;
+        }
+      }
+      for (const notes of Object.values(record.ideas)) {
+        for (const note of notes) {
+          if (!old.has(note.participantUUID)) continue;
+          note.participantUUID = participantUUID;
+          changed = true;
+        }
+      }
+      if (changed) changedRooms.push(roomId);
+      return changed ? record : null;
+    });
+  }
+  return changedRooms;
+}

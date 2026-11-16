@@ -276,3 +276,35 @@ export function lockAnswer(room: RoomRef, challengeId: string, question: string,
     answers.locks[index] = { option, participantUUID, at: Date.now() };
   });
 }
+
+/**
+ * Files a rejoined person's poll and quiz picks and locks under their new id in one
+ * round. A pick already made under the new id stays. Returns the rooms that changed.
+ */
+export async function renameInChallenges(parentUUID: string, roundId: string, retired: string[], participantUUID: string): Promise<string[]> {
+  const old = new Set(retired);
+  const changedRooms = new Set<string>();
+  await changeItem<RoundChallenges>(parentUUID, itemOf(roundId), (list) => {
+    if (!list) return null;
+    for (const challenge of list.challenges) {
+      for (const [roomId, answers] of Object.entries(challenge.rooms)) {
+        for (const picks of answers.picks) {
+          for (const id of Object.keys(picks)) {
+            if (!old.has(id)) continue;
+            picks[participantUUID] ??= picks[id];
+            delete picks[id];
+            changedRooms.add(roomId);
+          }
+        }
+        for (const lock of answers.locks) {
+          if (lock && old.has(lock.participantUUID)) {
+            lock.participantUUID = participantUUID;
+            changedRooms.add(roomId);
+          }
+        }
+      }
+    }
+    return changedRooms.size > 0 ? list : null;
+  });
+  return [...changedRooms];
+}

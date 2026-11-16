@@ -138,3 +138,27 @@ export async function moveToPlannedRoom(
   });
   return moved;
 }
+
+/**
+ * Files a rejoined person under their new id in one round's plan, keeping their room.
+ * When the plan already has the new id (placed after the rejoin), the old ids just go.
+ */
+export async function renameInPlan(parentUUID: string, roundId: string, retired: string[], participantUUID: string): Promise<void> {
+  const old = new Set(retired);
+  await changeItem<RoundPlan>(parentUUID, roundItem(roundId, "plan"), (plan) => {
+    if (!plan) return null;
+    const lists = [...plan.rooms.map((room) => room.participantUUIDs), plan.stayInMainParticipantUUIDs];
+    if (!lists.some((list) => list.some((id) => old.has(id)))) return null;
+    let placed = lists.some((list) => list.includes(participantUUID));
+    const rename = (list: string[]) =>
+      list.flatMap((id) => {
+        if (!old.has(id)) return [id];
+        if (placed) return [];
+        placed = true;
+        return [participantUUID];
+      });
+    for (const room of plan.rooms) room.participantUUIDs = rename(room.participantUUIDs);
+    plan.stayInMainParticipantUUIDs = rename(plan.stayInMainParticipantUUIDs);
+    return plan;
+  });
+}

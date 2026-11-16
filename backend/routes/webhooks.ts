@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { deleteAiUsage } from "../services/ai.ts";
 import { deleteItems } from "../services/dynamo.ts";
 import { applyEvent } from "../store/live.ts";
+import { followRejoin } from "../store/rejoin.ts";
 import { deleteTemplatesOf } from "../store/templates.ts";
 
 dotenv.config();
@@ -52,7 +53,9 @@ router.post("/zoom", async (req, res) => {
       console.log("webhook: app_deauthorized, saved templates and AI usage deleted");
     }
   } else {
-    await applyEvent(event);
+    // A rejoin's work moves over before the 200, so a failure gets a 500 and Zoom sends it again.
+    const rejoin = await applyEvent(event);
+    if (rejoin) await followRejoin(rejoin);
   }
   res.sendStatus(200);
 });

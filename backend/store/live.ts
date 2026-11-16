@@ -19,7 +19,10 @@ interface LiveRecord extends Omit<LiveState, "parentUUID"> {
     people?: Record<string, Person>;
 }
 
-/** One signed-in user: every participantUUID they joined with (a rejoin adds one) and their last role change. */
+/**
+ * One signed-in user: their participantUUIDs in this meeting and their last role change.
+ * A rejoin adds one; once the old one's work is moved over (store/rejoin.ts) it is dropped.
+ */
 export interface Person {
     participantUUIDs: string[];
     roleChangedAt: number;
@@ -264,17 +267,27 @@ export async function linkRooms(parentUUID: string, roundId: string, links: Room
     return changed ? state : null
 }
 
-// Update one participant's location from a webhook event.
+/** A signed-in person back under a new participantUUID, with the ids they left behind. */
+export interface Rejoin {
+    parentUUID: string;
+    uid: string;
+    participantUUID: string;
+    retired: string[];
+}
+
+// Update one participant's location from a webhook event, and return a rejoin to
+// follow when the person's other participantUUIDs have all left the meeting.
 // Entering a breakout room also fires participant_left (reason mentions "breakout")
 // and a participant_joined with a new user_id; both are ignored by the rules below.
-export async function applyEvent(body: unknown): Promise<void> {
+export async function applyEvent(body: unknown): Promise<Rejoin | null> {
     const { event, event_ts: at = Date.now(), payload } = body as WebhookBody
     const object = payload?.object
     const parentUUID = object?.uuid
     const participant = object?.participant
     const participantUUID = participant?.participant_uuid
-    if (!event || !parentUUID || !participantUUID) return
+    if (!event || !parentUUID || !participantUUID) return null
 
+    let rejoin: Rejoin | null = null
     await changeLive(parentUUID, async (live) => {
         const uid = participant?.participant_user_id
         // Records written before people existed have none (deployment rule: read old records).
@@ -321,6 +334,31 @@ export async function applyEvent(body: unknown): Promise<void> {
         }
 
         if (!known) live.participants.push(entry)
+        // Their other ids are a rejoin's leftovers only when none of them is still in the
+        // meeting: the same account on two devices is two people here.
+        if (uid && person && entry.location !== "left") {
+            const present = (id: string) => live.participants.some((p) => p.participantUUID === id && p.location !== "left")
+            const retired = person.participantUUIDs.filter((id) => id !== participantUUID)
+            if (retired.length > 0 && !retired.some(present)) rejoin = { parentUUID, uid, participantUUID, retired }
+        }
+        return true
+    })
+    return rejoin
+}
+
+/**
+ * Last step of a rejoin, once its work is filed under the new id: the old ids leave
+ * the people list and the person's ids, and clients refetch the plan and those rooms.
+ */
+export async function retireParticipantIds(rejoin: Rejoin, roomIds: string[]): Promise<void> {
+    const retired = new Set(rejoin.retired)
+    await changeLive(rejoin.parentUUID, (live) => {
+        live.participants = live.participants.filter((p) => !retired.has(p.participantUUID))
+        for (const id of retired) delete live.recentLeaves[id]
+        const person = live.people?.[rejoin.uid]
+        if (person) person.participantUUIDs = person.participantUUIDs.filter((id) => !retired.has(id))
+        live.planRevision += 1
+        for (const roomId of roomIds) live.roomRevisions[roomId] = (live.roomRevisions[roomId] ?? 0) + 1
         return true
     })
 }
