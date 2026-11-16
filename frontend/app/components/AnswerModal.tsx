@@ -39,6 +39,10 @@ export default function AnswerModal({
   // The autosave that has already been sent. A later save waits for it: the server keeps the
   // last write it receives, so a draft landing after Submit would turn "submitted" back into "working".
   const inFlight = useRef<Promise<unknown>>(Promise.resolve());
+  // Set once Submit has saved. The close that follows runs with this render's
+  // `changed`, which still compares against the answer from before the submit,
+  // so without it the close would save a "working" draft over the submission.
+  const submitted = useRef(false);
   const text = draft ?? saved?.text ?? "";
   const changed = text.trim() !== (saved?.text ?? "");
 
@@ -63,6 +67,7 @@ export default function AnswerModal({
 
   async function submit(close: () => void) {
     if (!(await send("submitted"))) return;
+    submitted.current = true;
     toast.success("Submitted to your host.");
     close();
   }
@@ -73,7 +78,7 @@ export default function AnswerModal({
       size="lg"
       locked={saving}
       panelClassName="bw-activity-panel bw-activity-panel--individual"
-      beforeClose={async () => (changed ? send("working") : true)}
+      beforeClose={async () => (changed && !submitted.current ? send("working") : true)}
       onClose={onClose}
     >
       {(close) => (
