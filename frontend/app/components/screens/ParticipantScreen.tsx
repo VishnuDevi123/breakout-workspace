@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
+import { useScreenSlide } from "@/lib/use-screen-slide";
 import { useLiveState } from "@/lib/use-live-state";
 import { useParticipantRound } from "@/lib/use-participant-round";
 import { useEarlierRounds, type EarlierRound } from "@/lib/use-past-rounds";
@@ -71,12 +72,26 @@ export default function ParticipantScreen({
 
   const earlier = <EarlierRoundList rounds={earlierRounds} onOpen={setPastRound} />;
 
+  // The screen on show, for the same slide between screens as the host's: an earlier
+  // round or the room page is a step forward from the landing and waiting pages.
+  const loading = !liveState || !round.ready || (!room && round.rechecking);
+  const screenKey = loading
+    ? ""
+    : pastRound
+      ? `past:${pastRound.roundId}`
+      : !roundId || !room || location === "main"
+        ? `waiting:${roundId ? (room ? "main" : "staying") : "none"}`
+        : showWorkspace
+          ? "room"
+          : "landing";
+  const asScreen = useScreenSlide({ key: screenKey, rank: [screenKey.startsWith("past") || screenKey === "room" ? 1 : 0, 0] });
+
   // One spinner until the stream's first state and this round's plan and task are
   // in, so "no round" or "staying in main" never flashes before the real page.
   if (!liveState || !round.ready) return <LoadingScreen message="Finding your room…" />;
 
   if (pastRound) {
-    return (
+    return asScreen(
       <PastRoundPage
         parentUUID={parentUUID}
         participantUUID={participantUUID}
@@ -89,7 +104,7 @@ export default function ParticipantScreen({
 
   if (!roundId) {
     const roundsRan = earlierRounds.length > 0;
-    return (
+    return asScreen(
       <WaitingScreen
         headline={roundsRan ? "That round has ended" : "No round running yet"}
         lede={
@@ -110,7 +125,7 @@ export default function ParticipantScreen({
   if (!room) {
     // The room page belongs to a placement, so losing one closes it.
     if (showWorkspace) setShowWorkspace(false);
-    return (
+    return asScreen(
       <WaitingScreen
         headline="You are staying in the main room"
         lede="Your host didn't place you in a breakout room this round."
@@ -123,7 +138,7 @@ export default function ParticipantScreen({
   if (location === "main") {
     // Placed, but not inside the room: just launched and not joined yet, or stepped back out.
     if (showWorkspace) setShowWorkspace(false);
-    return (
+    return asScreen(
       <WaitingScreen
         headline="You are in the main room"
         lede={`Your room for this round is ${room.name}. Open Zoom's Breakout Rooms button to join it.`}
@@ -134,7 +149,7 @@ export default function ParticipantScreen({
   }
 
   if (showWorkspace) {
-    return (
+    return asScreen(
       <ParticipantWorkspace
         round={round}
         room={room}
@@ -145,7 +160,7 @@ export default function ParticipantScreen({
     );
   }
 
-  return (
+  return asScreen(
     <div className="bw-shell">
       <div className="bw-body">
         <main className="bw-main bw-participant-main">
@@ -254,7 +269,7 @@ function EarlierRoundList({ rounds, onOpen }: { rounds: EarlierRound[]; onOpen: 
     <section className="bw-earlier" aria-label="Earlier rounds">
       <SectionLabel>Earlier rounds</SectionLabel>
       {rounds.map((round) => (
-        <button type="button" key={round.roundId} className="bw-earlier__row" onClick={() => onOpen(round)}>
+        <button type="button" key={round.roundId} className="bw-earlier__row bw-card-interactive" onClick={() => onOpen(round)}>
           <span className="bw-earlier__label">{round.label}</span>
           <span className="bw-results__chevron" aria-hidden>
             ›

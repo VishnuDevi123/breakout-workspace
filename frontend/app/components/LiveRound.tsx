@@ -557,7 +557,7 @@ function LiveRoomCard({
 }) {
   return (
     <Card
-      className="bw-room-card bw-room-card--clickable"
+      className="bw-room-card bw-card-interactive"
       role="button"
       tabIndex={0}
       aria-label={`Open ${name}`}

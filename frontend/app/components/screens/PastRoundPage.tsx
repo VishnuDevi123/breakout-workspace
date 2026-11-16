@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { memberStatus } from "@/lib/activity-kinds";
 import { readPastRound, type EarlierRound, type PastRound } from "@/lib/use-past-rounds";
 import type { Activity, LiveState, RoomResponsesView } from "@/types/breakout";
 
@@ -125,8 +124,8 @@ function PastRoundBody({
   const people = room.participantUUIDs.map((uuid) => {
     const fullName = live?.participants.find((p) => p.participantUUID === uuid)?.name || "Participant";
     const name = uuid === participantUUID ? "You" : fullName;
-    const status = activities.length > 0 ? memberStatus(activities, view, uuid) : null;
-    return { participantUUID: uuid, name, fullName, status, done: status === "Submitted" };
+    // Names only: the round is over, so there is no progress to show.
+    return { participantUUID: uuid, name, fullName, status: null, tone: "idle" } as const;
   });
 
   return (
@@ -147,7 +146,7 @@ function PastRoundBody({
         </section>
 
         <div className="bw-session__column">
-          <RoomPeople heading="In this room" people={people} />
+          <RoomPeople heading="In this room" people={people} selfUUID={participantUUID} />
         </div>
       </div>
     </>

@@ -2,8 +2,10 @@
 
 import type { DragEvent } from "react";
 
-import { ACTIVITY_KINDS, type RoomProgress } from "@/lib/activity-kinds";
+import { ACTIVITY_KINDS, PROGRESS_LABELS, type ActivityProgress, type RoomProgress } from "@/lib/activity-kinds";
 import type { Activity } from "@/types/breakout";
+
+import { Button } from "./ui";
 
 type Props = {
   activity: Activity;
@@ -24,11 +26,25 @@ type Props = {
       progress: RoomProgress;
       onOpen: () => void;
     }
+  | {
+      /** The participant's room page: their own progress and the way in. */
+      mode: "participant";
+      progress: ActivityProgress;
+      /** A board's note count from the whole room. */
+      roomIdeas?: number;
+      onOpen: () => void;
+    }
 );
 
 const OPEN_LABELS: Record<Activity["kind"], string> = {
   individual: "View answers",
   ideaBoard: "Open board",
+};
+
+/** The participant's action: a button until done, then a link back in. */
+const PARTICIPANT_ACTIONS: Record<Activity["kind"], { todo: string; done: string; doneStatus: string }> = {
+  individual: { todo: "Answer", done: "View answer", doneStatus: "Submitted" },
+  ideaBoard: { todo: "Add ideas", done: "Open board", doneStatus: "Ideas added" },
 };
 
 /**
@@ -52,9 +68,38 @@ export default function ActivityCard(props: Props) {
     </span>
   );
 
+  if (props.mode === "participant") {
+    const done = props.progress === "completed";
+    const action = PARTICIPANT_ACTIONS[activity.kind];
+    const ideas =
+      props.roomIdeas === undefined ? "" : ` · ${props.roomIdeas} ${props.roomIdeas === 1 ? "idea" : "ideas"} from your room`;
+    const status = `${done ? action.doneStatus : PROGRESS_LABELS[props.progress]}${ideas}`;
+    return (
+      <div className={className}>
+        <span className="bw-act-card__header">{header}</span>
+        {question}
+        <span className="bw-act-card__footer">
+          <span className={`bw-act-card__status${done ? " bw-act-card__status--done" : ""}`} title={status}>
+            <span className="bw-act-card__mark" aria-hidden />
+            <span className="bw-act-card__status-text">{status}</span>
+          </span>
+          {done ? (
+            <button type="button" className="bw-act-card__link" onClick={props.onOpen}>
+              {action.done} ›
+            </button>
+          ) : (
+            <Button size="sm" onClick={props.onOpen}>
+              {action.todo} ›
+            </Button>
+          )}
+        </span>
+      </div>
+    );
+  }
+
   if (props.mode === "monitor") {
     return (
-      <button type="button" className={`${className} bw-act-card--monitor`} onClick={props.onOpen}>
+      <button type="button" className={`${className} bw-act-card--monitor bw-card-interactive`} onClick={props.onOpen}>
         <span className="bw-act-card__header">
           {header}
           <span className="bw-act-card__link">{OPEN_LABELS[activity.kind]} ›</span>

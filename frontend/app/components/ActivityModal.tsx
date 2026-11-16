@@ -53,7 +53,7 @@ export default function ActivityModal({
               <SectionLabel>{kind.titleLabel}</SectionLabel>
               {/* One line that wraps if long; Enter finishes it. Counter as in the description. */}
               <GrowingField
-                className="bw-goal-input bw-activity-question"
+                className="bw-input bw-goal-input bw-activity-question"
                 value={title}
                 autoFocus
                 finishOnEnter
@@ -67,11 +67,11 @@ export default function ActivityModal({
             <div className="bw-field">
               <SectionLabel>Additional Information</SectionLabel>
               <GrowingField
-                className="bw-activity-description"
+                className="bw-input bw-activity-description"
                 minRows={4}
                 grow={false}
                 value={description}
-                placeholder="Write any additional instructions here"
+                placeholder="Type any additional instructions here"
                 ariaLabel="Additional information"
                 maxLength={MAX_ACTIVITY_DESCRIPTION_LENGTH}
                 onChange={setDescription}

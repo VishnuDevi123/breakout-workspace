@@ -166,7 +166,7 @@ export default function NotPlacedSheet({
         {people.map((person) => (
           <SheetRow key={person.participantUUID} person={person} busy={placing === person.participantUUID}>
             <select
-              className="bw-placement-select"
+              className="bw-input bw-placement-select"
               aria-label={`Room for ${person.name}`}
               value=""
               disabled={placing !== null}
@@ -197,7 +197,7 @@ export default function NotPlacedSheet({
             {stayingInMain.map((person) => (
               <SheetRow key={person.participantUUID} person={person} busy={false}>
                 <select
-                  className="bw-placement-select"
+                  className="bw-input bw-placement-select"
                   aria-label={`Room for ${person.name}`}
                   value=""
                   onChange={(event) => {

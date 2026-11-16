@@ -1,13 +1,13 @@
 import type { RoomStatus } from "@/types/breakout";
 
-const OPTIONS: { status: Exclude<RoomStatus, "onTrack">; label: string }[] = [
-  { status: "moreTime", label: "Need more time" },
-  { status: "done", label: "We're done" },
+const OPTIONS: { status: Exclude<RoomStatus, "onTrack">; icon: string; label: string }[] = [
+  { status: "moreTime", icon: "⏳", label: "Need more time" },
+  { status: "done", icon: "🙌", label: "We're done" },
 ];
 
 /**
- * Two toggles for the room's status. Nothing pressed means on track; tapping
- * the pressed one again clears it. Used in the room page strip and the one-minute reminder.
+ * Two toggle tiles for the room's status. Nothing pressed means on track; tapping
+ * the pressed one again clears it. Used in the room page card and the one-minute reminder.
  */
 export default function RoomStatusOptions({
   current,
@@ -27,7 +27,10 @@ export default function RoomStatusOptions({
             aria-pressed={pressed}
             onClick={() => onChoose(pressed ? "onTrack" : option.status)}
           >
-            {option.label}
+            <span className="bw-room-status__icon" aria-hidden>
+              {option.icon}
+            </span>
+            <span className="bw-room-status__label">{option.label}</span>
           </button>
         );
       })}

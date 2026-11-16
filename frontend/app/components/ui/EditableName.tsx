@@ -47,7 +47,7 @@ export default function EditableName({
       <span className={classes("bw-editable-name bw-editable-name--editing")}>
         <input
           autoFocus
-          className="bw-room-name-input"
+          className="bw-input bw-room-name-input"
           value={draft}
           placeholder={placeholder}
           aria-label={`Rename ${value ?? placeholder}`}

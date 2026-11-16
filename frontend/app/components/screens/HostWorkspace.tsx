@@ -17,6 +17,7 @@ import { useRoundTasks } from "@/lib/use-round-tasks";
 import { useRoundSummaries } from "@/lib/use-round-summaries";
 import { useWorkflowLibrary } from "@/lib/use-workflow-library";
 import { roundLabel, useWorkspace } from "@/lib/use-workspace";
+import { useScreenSlide, type ScreenRank } from "@/lib/use-screen-slide";
 import type { LiveState, PlannedRoom, RoundMeta, RoundPlanDraft, WorkflowSnapshot, Workspace, ZoomRole } from "@/types/breakout";
 
 import LiveRound from "../LiveRound";
@@ -37,14 +38,6 @@ const SETUP_MIN_LOADING_MS = 500;
  * "landing" is the same page chosen on purpose, so it stays put.
  */
 type HostView = "opening" | "landing" | "rounds" | "draft" | "task" | "live";
-
-/** Where a screen sits for the slide between screens: [depth, round position]. */
-type ScreenRank = [number, number];
-
-/** Going deeper (home, workflow, a round, live), or to a later round, slides forward. */
-function isBack(from: ScreenRank, to: ScreenRank): boolean {
-  return to[0] !== from[0] ? to[0] < from[0] : to[1] < from[1];
-}
 
 /** People who can be placed: everyone Zoom still reports in the meeting. */
 function presentCount(live: LiveState | null): number | null {
@@ -471,18 +464,9 @@ export default function HostWorkspace({
         : currentView === "rounds" || !selectedId
           ? { key: "rounds", rank: [1, 0] }
           : { key: `round:${selectedId}`, rank: [2, rounds.findIndex((round) => round.roundId === selectedId)] };
-  const [lastScreen, setLastScreen] = useState(screen);
-  const [nav, setNav] = useState<"next" | "back" | null>(null);
-  if (lastScreen.key !== screen.key) {
-    setLastScreen(screen);
-    setNav(isBack(lastScreen.rank, screen.rank) ? "back" : "next");
-  }
-  // A new key mounts the screen again, so its slide plays. The first screen just fades.
-  const asScreen = (node: ReactNode) => (
-    <div key={screen.key} className="bw-screen" data-nav={nav ?? undefined}>
-      {node}
-    </div>
-  );
+  // Ranks are [depth, round position]: going deeper (home, workflow, a round, live),
+  // or to a later round, slides forward.
+  const asScreen = useScreenSlide(screen);
 
   // On first open, wait for the live stream too: it decides between landing and
   // the live round, and landing first would flash before the jump.

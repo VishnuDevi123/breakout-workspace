@@ -1,4 +1,6 @@
 import {
+  MAX_IDEA_LENGTH,
+  MAX_ANSWER_LENGTH,
   NOTE_COLORS,
   type AnswerStatus,
   type IndividualAnswer,
@@ -18,9 +20,7 @@ import { HttpError, isRecord, requiredString } from "../services/http-error.ts";
 // The activity definitions live in store/tasks.ts. The route checks that an activity
 // or checklist item exists before calling a write here.
 
-const MAX_ANSWER_LENGTH = 2000;
 const MAX_NOTE_TITLE_LENGTH = 100;
-const MAX_NOTE_DESCRIPTION_LENGTH = 1000;
 const MAX_NOTES_PER_BOARD = 50;
 
 /** One room in one round of one meeting. Every function here works on one room. */
@@ -184,7 +184,7 @@ export async function submitAnswer(room: RoomRef, activityId: string, request: u
 /** New sticky note. The server picks its id, its "Idea N" title, its author name and its color. */
 export async function addIdea(room: RoomRef, activityId: string, request: unknown): Promise<RoomResponsesView> {
   const { participantUUID, body } = await callerIn(room, request);
-  const description = boundedText(body.description, "description", MAX_NOTE_DESCRIPTION_LENGTH);
+  const description = boundedText(body.description, "description", MAX_IDEA_LENGTH);
   const author = await authorName(room.parentUUID, participantUUID);
 
   return changeRoom(room, participantUUID, (record) => {
@@ -222,7 +222,7 @@ function findOwnNote(record: RoomResponses, activityId: string, noteId: string, 
 export async function editIdea(room: RoomRef, activityId: string, noteId: string, request: unknown): Promise<RoomResponsesView> {
   const { participantUUID, body } = await callerIn(room, request);
   const title = boundedText(body.title, "title", MAX_NOTE_TITLE_LENGTH);
-  const description = boundedText(body.description, "description", MAX_NOTE_DESCRIPTION_LENGTH);
+  const description = boundedText(body.description, "description", MAX_IDEA_LENGTH);
 
   return changeRoom(room, participantUUID, (record) => {
     const { notes, index } = findOwnNote(record, activityId, noteId, participantUUID);

@@ -77,7 +77,7 @@ export default function TaskFields({
       <div className="bw-field">
         <SectionLabel>Goal shown to every room</SectionLabel>
         <GrowingField
-          className="bw-goal-input bw-goal-input--area"
+          className="bw-input bw-goal-input bw-goal-input--area"
           reserveFull
           value={task.goal}
           placeholder="What should this room achieve?"
@@ -197,7 +197,7 @@ function LineList({
   return (
     <div className="bw-line-list" ref={list}>
       {lines.map((line, index) => (
-        <div className="bw-line-row" key={index}>
+        <div className="bw-line-row bw-input--inset" key={index}>
           {marker === "number" ? <span className="bw-mono bw-line-row__number">{index + 1}</span> : null}
           {marker === "checkbox" ? <span className="bw-line-row__box" aria-hidden="true" /> : null}
           <GrowingField

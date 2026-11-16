@@ -2,16 +2,15 @@ import type { CSSProperties } from "react";
 
 import type { Activity, RoomResponsesHostView, RoomResponsesView } from "@/types/breakout";
 
-/** Display text and tints per activity kind, shared by the host editor and (later) the room page. */
+/** Display text per activity kind, and the swatch colour on the host's "Add another" buttons. */
 export const ACTIVITY_KINDS: Record<
   Activity["kind"],
-  { label: string; hint: string; tint: string; ink: string; titleLabel: string; titlePlaceholder: string }
+  { label: string; hint: string; tint: string; titleLabel: string; titlePlaceholder: string }
 > = {
   individual: {
     label: "Individual response",
     hint: "private",
     tint: "#fff4c4",
-    ink: "#746019",
     titleLabel: "Question",
     titlePlaceholder: "What should each person answer?",
   },
@@ -19,13 +18,12 @@ export const ACTIVITY_KINDS: Record<
     label: "Shared response",
     hint: "idea board",
     tint: "#c3faf5",
-    ink: "#187574",
     titleLabel: "Prompt for the board",
     titlePlaceholder: "What should the room add ideas about?",
   },
 };
 
-type ActivityProgress = "notStarted" | "working" | "completed";
+export type ActivityProgress = "notStarted" | "working" | "completed";
 
 export const PROGRESS_LABELS: Record<ActivityProgress, string> = {
   notStarted: "Not started",
@@ -108,6 +106,11 @@ export function roomProgress(
 export function noteTint(color: string): CSSProperties {
   const hex = color.slice(0, 7);
   return { background: `linear-gradient(${hex}47, ${hex}47), var(--bw-surface)`, borderColor: `${hex}99` };
+}
+
+/** A note being edited: its tint in `--bw-note-tint`, for a layer that fades out so the card turns white smoothly. */
+export function noteEditTint(color: string): CSSProperties {
+  return { "--bw-note-tint": `${color.slice(0, 7)}47` } as CSSProperties;
 }
 
 function assertNever(value: never): never {

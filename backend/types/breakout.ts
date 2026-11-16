@@ -28,10 +28,16 @@ export const MAX_TASK_STEPS = 10;
 export const MAX_CHECKLIST_ITEMS = 10;
 
 /** Longest activity question or board prompt. Store, AI schema and activity editor all use it. */
-export const MAX_ACTIVITY_TITLE_LENGTH = 200;
+export const MAX_ACTIVITY_TITLE_LENGTH = 150;
 
 /** Longest activity description ("Additional information"). Store, AI schema and activity editor all use it. */
-export const MAX_ACTIVITY_DESCRIPTION_LENGTH = 500;
+export const MAX_ACTIVITY_DESCRIPTION_LENGTH = 250;
+
+/** Longest idea note. Store, the board's add box and a note's edit box all use it. */
+export const MAX_IDEA_LENGTH = 75;
+
+/** Longest individual answer. Store and answer window both use it. */
+export const MAX_ANSWER_LENGTH = 500;
 
 /** Most resource links one task can hold. */
 export const MAX_TASK_RESOURCES = 20;

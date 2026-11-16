@@ -704,7 +704,7 @@ function RoundRow({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   return (
-    <Card className="bw-round-row" style={{ borderLeftColor: round.dot }}>
+    <Card className="bw-round-row bw-card-interactive" style={{ borderLeftColor: round.dot }}>
       <EditableName value={round.title} placeholder={`Round ${position}`} onSave={onRename} />
       <div className="bw-round-row__controls">
         <div className="bw-stepper">

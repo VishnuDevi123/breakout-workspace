@@ -1,14 +1,15 @@
 "use client";
 
-import { ACTIVITY_KINDS, activityProgress, PROGRESS_LABELS } from "@/lib/activity-kinds";
+import { activityProgress } from "@/lib/activity-kinds";
 import type { Activity, RoomResponsesView } from "@/types/breakout";
 
-import { Button, Card, SectionLabel } from "./ui";
+import ActivityCard from "./ActivityCard";
+import { Card, SectionLabel } from "./ui";
 
 /**
  * The participant's activities for this round, in the host's order. Each card
  * shows the host's question only - the extra description belongs on the
- * activity's own page - with the caller's progress and an Open button.
+ * activity's own page - with the caller's progress and the way in.
  */
 export default function ActivityCards({
   activities,
@@ -21,9 +22,8 @@ export default function ActivityCards({
   participantUUID: string;
   onOpen: (activity: Activity) => void;
 }) {
-  const completed = activities.filter(
-    (activity) => activityProgress(activity, view, participantUUID) === "completed",
-  ).length;
+  const progress = activities.map((activity) => activityProgress(activity, view, participantUUID));
+  const completed = progress.filter((step) => step === "completed").length;
 
   return (
     <>
@@ -42,35 +42,17 @@ export default function ActivityCards({
         </Card>
       ) : null}
 
-      {activities.map((activity, index) => {
-        const kind = ACTIVITY_KINDS[activity.kind];
-        const progress = activityProgress(activity, view, participantUUID);
-
-        return (
-          <Card className="bw-room-activity" key={activity.id}>
-            <div className="bw-room-activity__header">
-              <span className="bw-activity-badge" style={{ background: kind.tint, color: kind.ink }}>
-                A{index + 1}
-              </span>
-              <span className="bw-room-activity__kind">{kind.label}</span>
-              {/* Zero-width when wide; a forced line break when the card is narrow. */}
-              <span className="bw-room-activity__break" aria-hidden />
-              <span className="bw-room-activity__spacer" aria-hidden />
-              <span className={`bw-progress-pill bw-progress-pill--${progress}`}>
-                {PROGRESS_LABELS[progress]}
-              </span>
-            </div>
-
-            <p className="bw-room-activity__question">{activity.title}</p>
-
-            <div className="bw-room-activity__footer">
-              <Button size="sm" onClick={() => onOpen(activity)}>
-                Open
-              </Button>
-            </div>
-          </Card>
-        );
-      })}
+      {activities.map((activity, index) => (
+        <ActivityCard
+          key={activity.id}
+          mode="participant"
+          activity={activity}
+          index={index}
+          progress={progress[index]}
+          roomIdeas={activity.kind === "ideaBoard" ? (view?.ideas[activity.id]?.length ?? 0) : undefined}
+          onOpen={() => onOpen(activity)}
+        />
+      ))}
     </>
   );
 }

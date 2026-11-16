@@ -107,7 +107,7 @@ export default function ActivityList({
       <SectionLabel>Add another</SectionLabel>
       {(Object.keys(ACTIVITY_KINDS) as Activity["kind"][]).map((kind) => (
         <button
-          className="bw-activity-add"
+          className="bw-activity-add bw-card-interactive"
           key={kind}
           onClick={() => setEditing({ kind, id: crypto.randomUUID(), title: "", description: "" })}
         >

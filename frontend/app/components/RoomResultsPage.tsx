@@ -29,7 +29,7 @@ export interface RoomPerson {
 }
 
 /**
- * One room's work for the host. A bar to step between rooms on top; then the room's
+ * One room's work for the host. "All rooms" and the room stepper on top; then the room's
  * people on the left, and its checklist and activities on the right. Submissions
  * open from an activity card, so this page stays readable however much a room wrote.
  */
@@ -73,10 +73,10 @@ export default function RoomResultsPage({
   return (
     <div className="bw-room-page">
       <div className="bw-room-nav">
-        <RoomStepper room={room} position={position} roomCount={roomCount} onStep={onStep} />
         <button type="button" className="bw-room-nav__all" onClick={onBack}>
           All rooms
         </button>
+        <RoomStepper room={room} position={position} roomCount={roomCount} onStep={onStep} />
       </div>
 
       <div className="bw-results__split">

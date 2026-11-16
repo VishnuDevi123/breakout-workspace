@@ -36,7 +36,7 @@ function LibraryRow({
   busy?: boolean;
 }) {
   return (
-    <div className="bw-card bw-library-row">
+    <div className={`bw-card bw-library-row${onOpen ? " bw-card-interactive" : ""}`}>
       <div className="bw-library-row__text">
         {onOpen ? (
           <button type="button" className="bw-library-row__title bw-card-open" disabled={busy} aria-label={`Use ${title}`} onClick={onOpen}>

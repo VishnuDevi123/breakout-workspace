@@ -96,7 +96,7 @@ export default function ChallengeEditor({
               <div className="bw-challenge-editor__intro">
                 {/* Wraps onto more lines rather than running off sideways. */}
                 <ExpandingField
-                  className="bw-challenge-editor__name"
+                  className="bw-input bw-challenge-editor__name"
                   value={draft.title}
                   autoFocus
                   collapseOnBlur={false}
@@ -202,7 +202,7 @@ function QuestionCard({
         </div>
       ) : null}
       <ExpandingField
-        className="bw-challenge-field"
+        className="bw-input bw-challenge-field"
         value={question.text}
         autoFocus={!isQuiz}
         collapseOnBlur={false}
@@ -217,7 +217,7 @@ function QuestionCard({
           const letter = optionLetter(optionIndex);
           const isRight = draft.kind === "quiz" && draft.answerKey[index] === optionIndex;
           return (
-            <div className="bw-challenge-option" data-right={isRight || undefined} key={optionIndex}>
+            <div className="bw-input bw-input--within bw-challenge-option" data-right={isRight || undefined} key={optionIndex}>
               {draft.kind === "quiz" ? (
                 <button
                   className="bw-challenge-option__mark"
@@ -321,7 +321,7 @@ function AnswerTime({
         </button>
       ) : (
         <input
-          className="bw-answer-time__value bw-answer-time__input bw-mono"
+          className="bw-input bw-answer-time__value bw-answer-time__input bw-mono"
           value={typed}
           autoFocus
           inputMode="numeric"

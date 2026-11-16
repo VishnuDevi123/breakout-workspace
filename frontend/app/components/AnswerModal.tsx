@@ -5,12 +5,12 @@ import { toast } from "sonner";
 
 import { ACTIVITY_KINDS } from "@/lib/activity-kinds";
 import type { useRoomResponses } from "@/lib/use-room-responses";
-import type { IndividualActivity } from "@/types/breakout";
+import { MAX_ANSWER_LENGTH, type IndividualActivity } from "@/types/breakout";
 
 import ActivityPrompt from "./ActivityPrompt";
+import GrowingField from "./GrowingField";
 import { Button, Modal } from "./ui";
 
-const MAX_ANSWER_LENGTH = 2000;
 const AUTOSAVE_DELAY_MS = 1500;
 
 /**
@@ -72,15 +72,14 @@ export default function AnswerModal({
       label={kind.label}
       size="lg"
       locked={saving}
+      panelClassName="bw-activity-panel bw-activity-panel--individual"
       beforeClose={async () => (changed ? send("working") : true)}
       onClose={onClose}
     >
       {(close) => (
         <>
           <header className="bw-overlay__header">
-            <span className="bw-activity-badge" style={{ background: kind.tint, color: kind.ink }}>
-              {kind.label}
-            </span>
+            <span className="bw-activity-panel__title">{kind.label}</span>
             <div className="bw-header-spacer" />
             <Button
               size="sm"
@@ -94,13 +93,18 @@ export default function AnswerModal({
 
           <div className="bw-overlay__body">
             <ActivityPrompt activity={activity} />
-            <textarea
-              className="bw-answer__box"
-              value={text}
+            {/* The same fixed box as the host's "Additional information", with its counter. */}
+            <GrowingField
+              className="bw-input bw-activity-description"
+              minRows={10}
+              grow={false}
               autoFocus
+              value={text}
+              placeholder="Type your answer here"
+              ariaLabel="Your answer"
               maxLength={MAX_ANSWER_LENGTH}
-              placeholder="Write your answer here..."
-              onChange={(event) => edit(event.target.value)}
+              onChange={edit}
+              onBlur={() => {}}
             />
           </div>
         </>

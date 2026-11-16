@@ -166,7 +166,7 @@ export default function SessionPage({
 function TaskSummary({ task, editable, onEdit }: { task: RoomTask; editable: boolean; onEdit: () => void }) {
   const hasTask = taskHasContent(task);
   return (
-    <button className="bw-task-summary" disabled={!editable} onClick={onEdit}>
+    <button className="bw-task-summary bw-card-interactive" disabled={!editable} onClick={onEdit}>
       <span className="bw-task-summary__goal">
         {task.goal || (hasTask ? "Task without a goal" : "No task set yet")}
       </span>

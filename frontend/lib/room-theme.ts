@@ -1,12 +1,12 @@
 import type { CSSProperties } from "react";
 
 /**
- * A room's colour for its participant screens: the room bar and the poll and
- * quiz card take a light tint of the room's dot, so every room looks different
- * while the text stays dark and readable on all of them.
+ * A room's colour for its participant screens: the room bar takes a light tint
+ * of the room's dot, so every room looks different while the text stays dark
+ * and readable on all of them.
  */
 
-/** How far each dot is moved toward white for the bar and the card. 0 is the dot itself, 1 is white. */
+/** How far each dot is moved toward white for the bar. 0 is the dot itself, 1 is white. */
 const TINT = 0.85;
 
 const WHITE = "#ffffff";
@@ -41,25 +41,10 @@ function mix(hex: string, target: string, amount: number): string {
   return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** The tint pushed lighter until it reads as text on the dark ink (the Lock in button). */
-function readableOnInk(tint: string): string {
-  for (let amount = 0; amount <= 1; amount += 0.05) {
-    const candidate = mix(tint, WHITE, amount);
-    if (contrast(candidate, INK) >= 4.5) return candidate;
-  }
-  return WHITE;
-}
-
-/**
- * CSS variables for a room: `--bw-room` (the light tint), `--bw-room-ink` (the
- * dark text on it) and `--bw-room-strong` (the tint readable as text on an
- * ink-coloured surface, such as the Lock in button).
- */
+/** CSS variables for a room: `--bw-room` (the light tint) and `--bw-room-ink` (the dark text on it). */
 export function roomTheme(dot: string): CSSProperties {
-  const tint = mix(dot, WHITE, TINT);
   return {
-    "--bw-room": tint,
+    "--bw-room": mix(dot, WHITE, TINT),
     "--bw-room-ink": INK,
-    "--bw-room-strong": readableOnInk(tint),
   } as CSSProperties;
 }
