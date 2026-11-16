@@ -111,8 +111,11 @@ export default function LiveRound({
   onEndWorkflow: () => Promise<void>;
   /** Saves the round with people added to rooms and moves them in Zoom. Reports its own errors. */
   onPlace: (next: RoundPlanDraft) => Promise<void>;
-  /** Asks Zoom to move someone to another open room; the plan follows when Zoom reports it. Reports its own errors. */
-  onMove: (person: { participantUUID: string; name: string }, roomName: string) => Promise<void>;
+  /**
+   * Asks Zoom to move someone to another open room, or back to the main meeting with null;
+   * the plan follows when Zoom reports it. Reports its own errors.
+   */
+  onMove: (person: { participantUUID: string; name: string }, roomName: string | null) => Promise<void>;
   /** Every round's saved plan, for the Session page's room summaries. */
   plans: Record<string, RoundPlan | null>;
   onAddRound: () => Promise<void>;
@@ -360,6 +363,13 @@ export default function LiveRound({
         ) : page === "rooms" && openRoom ? (
           <RoomResultsPage
             room={openRoom}
+            position={round.rooms.findIndex((room) => room.id === openRoom.id)}
+            roomCount={round.rooms.length}
+            onStep={(step) => {
+              const at = round.rooms.findIndex((room) => room.id === openRoom.id) + step;
+              const next = round.rooms[at];
+              if (next) goTo({ kind: "room", roomId: next.id });
+            }}
             people={peopleIn(openRoom.id)}
             presentCount={membersOf(openRoom.id).length}
             otherRooms={open ? round.rooms.filter((room) => room.id !== openRoom.id) : []}
@@ -402,16 +412,14 @@ export default function LiveRound({
             onRoomCount={onRoomCount}
             zoomBusy={busy}
             challenges={
-              open || challenges.latest ? (
-                <ChallengeCards
-                  latest={challenges.latest}
-                  open={open}
-                  answeringRoomIds={answeringRooms.map((room) => room.id)}
-                  onNew={setEditingKind}
-                  onResults={() => setViewingResults(true)}
-                  onReveal={revealLatest}
-                />
-              ) : null
+              <ChallengeCards
+                latest={challenges.latest}
+                open={open}
+                answeringRoomIds={answeringRooms.map((room) => room.id)}
+                onNew={setEditingKind}
+                onResults={() => setViewingResults(true)}
+                onReveal={revealLatest}
+              />
             }
           />
         )}

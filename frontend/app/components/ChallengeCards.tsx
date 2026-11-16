@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { CHALLENGE_KINDS, type ChallengeKind } from "@/lib/challenges";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
@@ -64,20 +64,41 @@ export default function ChallengeCards({
             <p className="bw-challenge-card__text">
               {running ? `Reveal the running ${CHALLENGE_KINDS[running.kind].label.toLowerCase()} first.` : BLURBS[kind]}
             </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="bw-challenge-card__action"
-              disabled={!open || running !== null}
-              title={open ? undefined : "Polls and quizzes launch while a round runs"}
-              onClick={() => onNew(kind)}
+            <ClosedHint
+              id={`bw-closed-hint-${kind}`}
+              hint={open ? null : `A new ${CHALLENGE_KINDS[kind].label.toLowerCase()} cannot be launched while no round is running.`}
             >
-              New {CHALLENGE_KINDS[kind].label.toLowerCase()}
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!open || running !== null}
+                aria-describedby={open ? undefined : `bw-closed-hint-${kind}`}
+                onClick={() => onNew(kind)}
+              >
+                New {CHALLENGE_KINDS[kind].label.toLowerCase()}
+              </Button>
+            </ClosedHint>
           </Card>
         ),
       )}
     </div>
+  );
+}
+
+/**
+ * Holds the card's button and, while the round is closed, the reason it is off, shown on hover.
+ * The wrapper takes the hover: a disabled button gets no pointer events in every browser.
+ */
+function ClosedHint({ id, hint, children }: { id: string; hint: string | null; children: ReactNode }) {
+  return (
+    <span className="bw-challenge-card__action">
+      {children}
+      {hint ? (
+        <span id={id} role="tooltip" className="bw-hover-hint">
+          {hint}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

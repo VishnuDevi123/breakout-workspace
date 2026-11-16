@@ -322,6 +322,7 @@ export default function RoundsOverview({
           <p className="bw-round-list__hint">Click a round to edit its rooms and tasks</p>
           <RoundPages
             className="bw-round-list"
+            fill
             items={workspace.rounds.map((round, index) => ({
               key: round.roundId,
               node: (

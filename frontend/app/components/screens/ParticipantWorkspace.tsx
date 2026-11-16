@@ -196,7 +196,7 @@ export default function ParticipantWorkspace({
 
             <div className="bw-session__column">
               {task && task.checklist.length > 0 ? (
-                <SharedChecklist items={task.checklist} view={view} onTick={(itemId, done) => void setTick(itemId, done)} />
+                <SharedChecklist title="Shared checklist" items={task.checklist} ticks={view?.ticks} onTick={(itemId, done) => void setTick(itemId, done)} />
               ) : null}
               <RoomPeople heading="In this room" people={people} />
             </div>

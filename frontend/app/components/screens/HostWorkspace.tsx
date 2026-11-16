@@ -272,10 +272,17 @@ export default function HostWorkspace({
    * Move from the room page: Zoom asks the person to join the other room. The plan
    * is not written here; it follows once Zoom reports them there (backend followMove).
    */
-  async function moveInLiveRound(person: { participantUUID: string; name: string }, roomName: string) {
+  /** `roomName` null sends the person back to the main meeting. */
+  async function moveInLiveRound(person: { participantUUID: string; name: string }, roomName: string | null) {
+    const firstName = person.name.trim().split(/\s+/)[0] || person.name;
     try {
-      await controller.placeInOpenRooms([{ participantUUID: person.participantUUID, roomName }]);
-      toast.success(`${person.name} was asked to join ${roomName}.`);
+      if (roomName === null) {
+        await controller.sendBackToMain(person.participantUUID);
+        toast.success(`${firstName} moved to the main meeting.`);
+      } else {
+        await controller.placeInOpenRooms([{ participantUUID: person.participantUUID, roomName }]);
+        toast.success(`${firstName} moved to ${roomName}.`);
+      }
     } catch (error) {
       toast.error(`Could not move ${person.name}.`, {
         description: error instanceof Error ? error.message : undefined,

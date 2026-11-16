@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { ACTIVITY_KINDS } from "@/lib/activity-kinds";
 import type { Activity } from "@/types/breakout";
 
+import ActivityCard from "./ActivityCard";
 import ActivityModal from "./ActivityModal";
 import { Button, Card, SectionLabel } from "./ui";
 
 /**
- * The round's activities as rail cards: open one to edit it, drag to reorder,
+ * The round's activities as rail cards: Edit opens one, drag to reorder,
  * remove with a confirming second click, add another from the rows below.
  * Used on the task page before launch and on the live rail during the round.
  */
@@ -60,8 +61,7 @@ export default function ActivityList({
       </div>
 
       {activities.map((activity, index) => {
-        const kind = ACTIVITY_KINDS[activity.kind];
-        const label = `A${index + 1}`;
+        const label = `activity ${index + 1}`;
 
         if (confirmingId === activity.id) {
           return (
@@ -85,37 +85,16 @@ export default function ActivityList({
         }
 
         return (
-          <Card
-            className="bw-activity-card"
+          <ActivityCard
             key={activity.id}
-            draggable
+            mode="edit"
+            activity={activity}
+            index={index}
+            onEdit={() => setEditing(activity)}
+            onRemove={() => setConfirmingId(activity.id)}
             onDragStart={() => setDragIndex(index)}
-            onDragOver={(event) => event.preventDefault()}
             onDrop={() => moveTo(index)}
-            onClick={() => setEditing(activity)}
-          >
-            <div className="bw-activity-card__header">
-              <span className="bw-activity-card__grip" aria-hidden>⠿</span>
-              <span className="bw-activity-badge" style={{ background: kind.tint, color: kind.ink }}>
-                {label}
-              </span>
-              <span className="bw-activity-card__kind">{kind.label}</span>
-              <button
-                className="bw-icon-button bw-close"
-                aria-label={`Remove ${label}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setConfirmingId(activity.id);
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <span className="bw-activity-card__title">{activity.title}</span>
-            {activity.description ? (
-              <span className="bw-activity-card__description">{activity.description}</span>
-            ) : null}
-          </Card>
+          />
         );
       })}
 

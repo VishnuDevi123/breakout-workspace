@@ -110,31 +110,29 @@ export default function SessionPage({
       </section>
 
       <section className="bw-session__column">
+        {/* Same order open or closed: task, polls and quizzes, then activities. */}
         {!open && nextRound ? (
           <NextRoundTasks
             parentUUID={workspace.parentUUID}
             round={nextRound}
             label={roundLabel(workspace, nextRound.roundId)}
+            challenges={challenges}
           />
         ) : (
           <>
             <SectionLabel>This round</SectionLabel>
             <TaskSummary task={tasks.task} editable={open} onEdit={onEditTask} />
-          </>
-        )}
-        {challenges ? (
-          <>
             <SectionLabel>Polls and quizzes</SectionLabel>
             {challenges}
+            {open ? (
+              <ActivityList
+                activities={tasks.activities}
+                live
+                onSave={tasks.saveActivities}
+              />
+            ) : null}
           </>
-        ) : null}
-        {open ? (
-          <ActivityList
-            activities={tasks.activities}
-            live
-            onSave={tasks.saveActivities}
-          />
-        ) : null}
+        )}
       </section>
 
       {settingsRound ? (
@@ -178,7 +176,18 @@ function TaskSummary({ task, editable, onEdit }: { task: RoomTask; editable: boo
 }
 
 /** Between rounds: the next round's task and activities, to prepare before its launch. */
-function NextRoundTasks({ parentUUID, round, label }: { parentUUID: string; round: RoundMeta; label: string }) {
+function NextRoundTasks({
+  parentUUID,
+  round,
+  label,
+  challenges,
+}: {
+  parentUUID: string;
+  round: RoundMeta;
+  label: string;
+  /** Kept between the task and the activities, where it sits while a round runs. */
+  challenges: ReactNode;
+}) {
   const tasks = useRoundTasks(parentUUID, round.roundId);
   const [editing, setEditing] = useState(false);
 
@@ -186,6 +195,8 @@ function NextRoundTasks({ parentUUID, round, label }: { parentUUID: string; roun
     <>
       <SectionLabel>Next round · {label}</SectionLabel>
       <TaskSummary task={tasks.task} editable={tasks.state !== "loading"} onEdit={() => setEditing(true)} />
+      <SectionLabel>Polls and quizzes</SectionLabel>
+      {challenges}
       <ActivityList activities={tasks.activities} live={false} onSave={tasks.saveActivities} />
       {editing ? <EditTaskModal roundTitle={label} tasks={tasks} onClose={() => setEditing(false)} /> : null}
     </>

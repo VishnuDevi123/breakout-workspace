@@ -131,6 +131,14 @@ export async function assignToOpenRooms(
 }
 
 /**
+ * Sends someone in an open room back to the main meeting: Zoom's docs say an assign
+ * without a room id takes them out of their room.
+ */
+export async function sendToMainMeeting(sdk: ZoomSdk, participantUUID: string): Promise<void> {
+  await withZoomTimeout("Send to main meeting", sdk.assignParticipantToBreakoutRoom({ participantUUID }));
+}
+
+/**
  * Names the Zoom rooms webhooks could not: each person sits in a room whose webhook
  * uuid is their `location`, and Zoom's room list says which named room holds them.
  * Room names match the plan's, as at launch. Only the meeting owner's list carries people.

@@ -12,6 +12,7 @@ import {
   launchRoundInZoom,
   readMeetingRoster,
   readRoomLinks,
+  sendToMainMeeting,
 } from "@/lib/launch-round";
 import { configureZoomSdk, type ZoomSdk } from "@/lib/zoom-sdk";
 import type { RoundPlanDraft, Workspace, ZoomRole } from "@/types/breakout";
@@ -235,6 +236,11 @@ export function useLiveRoomController(input: ControllerInput) {
     await assignToOpenRooms(sdk, placements);
   }
 
+  async function sendBackToMain(participantUUID: string) {
+    const { sdk } = await hostSdk();
+    await sendToMainMeeting(sdk, participantUUID);
+  }
+
   /**
    * People webhooks report in a Zoom room the app cannot name yet: someone was moved
    * there. Zoom's room list names it, and the backend moves them in the plan.
@@ -254,5 +260,5 @@ export function useLiveRoomController(input: ControllerInput) {
     })();
   }
 
-  return { operation, launch, close, recordLaunch, roomsOpenInZoom, reconcile, syncRoster, placeInOpenRooms, linkUnknownRooms };
+  return { operation, launch, close, recordLaunch, roomsOpenInZoom, reconcile, syncRoster, placeInOpenRooms, sendBackToMain, linkUnknownRooms };
 }

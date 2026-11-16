@@ -87,7 +87,7 @@ export default function IdeaBoardPanel({
 
       <div className="bw-session__column">
         <RoomPeople heading="Working on this board" people={people} />
-        <SharedChecklist items={checklist} view={view} onTick={(itemId, done) => void setTick(itemId, done)} />
+        <SharedChecklist title="Shared checklist" items={checklist} ticks={view?.ticks} onTick={(itemId, done) => void setTick(itemId, done)} />
       </div>
     </>
   );

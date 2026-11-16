@@ -1529,7 +1529,7 @@ input[type="checkbox"] {
 }
 
 /*
- * Round cards in pages of four (RoundPages). A wide layout shows every card and
+ * Round cards in pages (RoundPages). A wide layout shows every card and
  * no pager; the narrow layouts below (workflow page, session page) turn paging on.
  */
 .bw-round-pages__item {
@@ -1589,16 +1589,17 @@ input[type="checkbox"] {
   .bw-workflow .bw-round-pages > .bw-add-round {
     grid-column: 1 / -1;
   }
-  /* Two rows kept on every page, so the pager never moves; rows share one height. */
+  /* Every row of a page kept, so the pager never moves; rows share one height.
+     RoundPages sets how many rows fit the window. */
   .bw-workflow .bw-round-pages[data-paged] {
-    grid-template-rows: repeat(2, 1fr);
+    grid-template-rows: repeat(var(--bw-page-rows, 2), 1fr) auto auto;
   }
-  /* Under the pager, even on a last page with one card. */
+  /* The last two rows, even on a last page with one card. */
   .bw-workflow .bw-round-pages[data-paged] > .bw-pager {
-    grid-row: 3;
+    grid-row: -3 / -2;
   }
   .bw-workflow .bw-round-pages[data-paged] > .bw-add-round {
-    grid-row: 4;
+    grid-row: -2 / -1;
   }
   .bw-workflow .bw-round-pages[data-direction="next"] .bw-round-pages__item > * {
     animation: bwSlideNext var(--bw-motion) var(--bw-ease);
@@ -2888,7 +2889,7 @@ a.bw-resource-row:hover {
 /* The rounds and the settings rail scroll on their own under the pinned header. */
 .bw-workflow {
   display: grid;
-  grid-template-columns: minmax(0, 6.5fr) minmax(0, 3.25fr);
+  grid-template-columns: minmax(0, 6.5fr) minmax(300px, 3.25fr);
   grid-template-rows: minmax(0, 1fr);
 }
 .bw-workflow > .bw-rail {
@@ -3173,13 +3174,6 @@ a.bw-resource-row:hover {
   flex-direction: column;
   gap: 16px;
 }
-.bw-results__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  min-width: 0;
-}
 /* Back is a quiet text link above the page, not a button competing with the title. */
 .bw-results__back {
   align-self: flex-start;
@@ -3224,20 +3218,6 @@ a.bw-resource-row:hover {
   color: var(--bw-muted);
   white-space: pre-wrap;
 }
-.bw-results__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--bw-fs-section);
-  font-weight: 600;
-}
-/* Head count beside the room name, 2px over the usual secondary size. */
-.bw-results__count {
-  flex: none;
-  font-size: var(--bw-fs-section);
-  color: var(--bw-muted);
-}
 .bw-results__meta {
   flex: none;
   font-size: var(--bw-fs-meta);
@@ -3245,18 +3225,346 @@ a.bw-resource-row:hover {
 }
 .bw-results__split {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 270px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
-/* Left column: people, then the checklist at the bottom. */
-.bw-results__side {
-  min-width: 0;
+/* Below 600px: one column - room bar, people, checklist, activities. */
+@container frame-page (max-width: 599px) {
+  .bw-results__split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+/* ── Host's room page: room bar, people, checklist ─────────────────── */
+.bw-room-page {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-.bw-results__people,
+.bw-room-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.bw-room-nav__pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bw-room-nav__step {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 2px;
+  border: 1px solid var(--bw-border-soft);
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-surface);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--bw-ink);
+  cursor: pointer;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease);
+}
+.bw-room-nav__step:hover:not(:disabled) {
+  border-color: var(--bw-border-strong);
+}
+.bw-room-nav__step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.bw-room-nav__pager > .bw-dot {
+  margin-left: 4px;
+}
+.bw-room-nav__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-section);
+  font-weight: 600;
+}
+.bw-room-nav__of {
+  flex: none;
+  margin-right: 4px;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-room-nav__all {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--bw-fs-body);
+  font-weight: 600;
+  color: var(--bw-accent);
+  cursor: pointer;
+}
+.bw-room-nav__all:hover {
+  color: var(--bw-accent-deep);
+}
+.bw-room-people {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bw-room-people__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+.bw-room-people__count {
+  flex: none;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-room-person {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--bw-border);
+}
+.bw-room-person__avatar {
+  font-weight: 600;
+}
+.bw-room-person__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bw-room-person__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-body);
+  color: var(--bw-ink);
+}
+.bw-room-person__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: var(--bw-fs-label);
+  color: var(--bw-muted);
+}
+.bw-room-person__status::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-muted-4);
+}
+.bw-room-person__status--in {
+  color: var(--bw-green);
+}
+.bw-room-person__status--in::before {
+  background: var(--bw-green);
+}
+.bw-room-person--away .bw-room-person__name,
+.bw-room-person--away .bw-room-person__avatar {
+  opacity: 0.55;
+}
+/* Move someone: an outline ⇄ button and its menu under it, right-aligned to the row. */
+.bw-move {
+  flex: none;
+}
+.bw-move__button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--bw-border-soft);
+  border-radius: var(--bw-radius-sm);
+  background: var(--bw-surface);
+  font: inherit;
+  font-size: 14px;
+  color: var(--bw-accent);
+  cursor: pointer;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease);
+}
+.bw-move__button:hover,
+.bw-move__button[aria-expanded="true"] {
+  border-color: var(--bw-accent);
+}
+.bw-move__menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 0;
+  z-index: 5;
+  width: min(240px, 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--bw-border);
+  border-radius: var(--bw-radius-md);
+  background: var(--bw-surface);
+  box-shadow: var(--bw-shadow-2);
+  animation: bwFadeIn var(--bw-motion-fast) var(--bw-ease);
+}
+.bw-move__title {
+  padding: 6px 8px 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-label);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bw-muted-3);
+}
+.bw-move__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--bw-radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--bw-ink);
+  cursor: pointer;
+}
+.bw-move__item:hover,
+.bw-move__item:focus-visible {
+  background: var(--bw-surface-sunken);
+  outline: none;
+}
+.bw-move__room {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-body);
+}
+.bw-move__count {
+  flex: none;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-move__icon {
+  flex: none;
+  width: 10px;
+  text-align: center;
+}
+.bw-move__divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--bw-border);
+}
+/* The room's checklist: a green bar for how much is done, green ticks on done items.
+   Read-only on the host's room page; rows are buttons for the room (SharedChecklist). */
+.bw-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.bw-checklist__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+.bw-checklist__header > .bw-section-label {
+  flex: none;
+}
+.bw-checklist__track {
+  flex: 1 1 40px;
+  min-width: 30px;
+  height: 6px;
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-surface-muted);
+  overflow: hidden;
+}
+.bw-checklist__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bw-green);
+  transition: width var(--bw-motion) var(--bw-ease);
+}
+.bw-checklist__count {
+  flex: none;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+.bw-checklist__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 0;
+}
+button.bw-checklist__row {
+  width: 100%;
+  border: 0;
+  border-radius: var(--bw-radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.bw-checklist__row:focus-visible {
+  outline: 2px solid var(--bw-accent);
+  outline-offset: 2px;
+}
+.bw-checklist__box {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1.5px solid var(--bw-border-strong);
+  border-radius: 5px;
+}
+.bw-checklist__row--done .bw-checklist__box {
+  border-color: var(--bw-green);
+  background: var(--bw-green);
+}
+.bw-checklist__row--done .bw-checklist__box::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.bw-checklist__label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  font-size: var(--bw-fs-body);
+  color: var(--bw-ink);
+}
+.bw-checklist__row--done .bw-checklist__label {
+  text-decoration: line-through;
+  color: var(--bw-muted);
+}
 .bw-results__work {
   min-width: 0;
   display: flex;
@@ -3269,16 +3577,6 @@ a.bw-resource-row:hover {
   gap: 10px;
   min-width: 0;
 }
-.bw-results__person-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.bw-results__person-text .bw-room-member__status {
-  font-size: var(--bw-fs-label);
-  font-weight: 400;
-}
 .bw-results__person-name {
   flex: 1;
   min-width: 0;
@@ -3287,39 +3585,6 @@ a.bw-resource-row:hover {
   white-space: nowrap;
   font-size: var(--bw-fs-meta);
   font-weight: 500;
-}
-/* Narrow: people become one wrapping row above the work. */
-@container frame-page (max-width: 639px) {
-  .bw-results__split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bw-results__people {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-}
-/* Kind, then progress pushed right, then the chevron. Titles are left out on purpose. */
-.bw-results__activity {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--bw-border);
-  border-radius: var(--bw-radius-md);
-  background: var(--bw-surface);
-  box-shadow: var(--bw-shadow-1);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.bw-results__activity:hover,
-.bw-results__activity:focus-visible {
-  border-color: var(--bw-accent);
-}
-.bw-results__activity .bw-results__meta {
-  justify-self: end;
 }
 .bw-results__chevron {
   font-size: var(--bw-fs-meta);
@@ -3475,50 +3740,146 @@ a.bw-resource-row:hover {
   justify-content: space-between;
   gap: 8px;
 }
-.bw-activity-card {
+/* One activity as the host sees it (ActivityCard), tinted by kind: place and kind,
+   the question, then its details (edit) or the room's progress (monitor).
+   Every line ends in "…" rather than leaving the card. */
+.bw-act-card {
+  --bw-act-tint: var(--bw-individual-tint);
+  --bw-act-line: var(--bw-individual-line);
+  --bw-act-bar: #eab308;
+  --bw-act-track: #f1ead0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--bw-act-line);
+  border-radius: 12px;
+  background: var(--bw-act-tint);
+  font: inherit;
+  text-align: left;
+  color: var(--bw-ink);
 }
-.bw-activity-card:hover {
+.bw-act-card--ideaBoard {
+  --bw-act-tint: var(--bw-shared-tint);
+  --bw-act-line: var(--bw-shared-line);
+  --bw-act-bar: #14b8a6;
+  --bw-act-track: #d6ece8;
+}
+.bw-act-card[draggable="true"] {
+  cursor: grab;
+}
+.bw-act-card--monitor {
+  width: 100%;
+  cursor: pointer;
+  transition: border-color var(--bw-motion-fast) var(--bw-ease);
+}
+.bw-act-card--monitor:hover,
+.bw-act-card--monitor:focus-visible {
   border-color: var(--bw-accent);
 }
+.bw-act-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bw-act-card__grip {
+  flex: none;
+  color: var(--bw-muted-4);
+}
+.bw-act-card__number {
+  flex: none;
+  font-size: var(--bw-fs-section);
+  font-variant-numeric: tabular-nums;
+  color: var(--bw-muted);
+}
+.bw-act-card__kind {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-section);
+  font-weight: 600;
+}
+.bw-act-card__link {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--bw-fs-body);
+  font-weight: 600;
+  color: var(--bw-accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+button.bw-act-card__link:hover {
+  text-decoration: underline;
+}
+.bw-act-card__header .bw-close {
+  flex: none;
+}
+/* Two lines at most; the full text is on hover and in the editor. */
+.bw-act-card__question,
+.bw-act-card__description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.bw-act-card__question {
+  font-size: var(--bw-fs-body);
+  line-height: 1.45;
+}
+.bw-act-card__description {
+  margin-top: 4px;
+  font-size: var(--bw-fs-meta);
+  line-height: 1.45;
+  color: var(--bw-muted);
+}
+.bw-act-card__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 6px;
+}
+.bw-act-card__track {
+  flex: 1 1 60px;
+  min-width: 40px;
+  height: 6px;
+  border-radius: var(--bw-radius-pill);
+  background: var(--bw-act-track);
+  overflow: hidden;
+}
+.bw-act-card__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bw-act-bar);
+  transition: width var(--bw-motion) var(--bw-ease);
+}
+.bw-act-card__count {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--bw-fs-meta);
+  color: var(--bw-muted);
+}
+/* Asking to remove an activity, in its card's place. */
 .bw-activity-card--confirm {
-  cursor: default;
+  display: flex;
+  flex-direction: column;
   gap: 9px;
   font-size: var(--bw-fs-meta);
   line-height: 1.45;
   color: var(--bw-red-deep);
   border-color: var(--bw-red);
-}
-.bw-activity-card__header {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.bw-activity-card__grip {
-  color: var(--bw-muted-4);
-  cursor: grab;
-}
-.bw-activity-card__kind {
-  flex: 1;
-  font-size: var(--bw-fs-meta);
-  font-weight: 600;
-  color: var(--bw-ink);
-}
-.bw-activity-card__title {
-  font-size: var(--bw-fs-body);
-  color: var(--bw-ink);
-}
-.bw-activity-card__description {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: var(--bw-fs-meta);
-  line-height: 1.45;
-  color: var(--bw-muted-2);
 }
 .bw-activity-card__actions {
   display: flex;
@@ -3724,96 +4085,6 @@ a.bw-resource-row:hover {
 .bw-room-member__status--done {
   color: var(--bw-teal-deep);
 }
-/* Host's room page: move someone to another open room. Quiet until used. */
-.bw-person-move {
-  flex: none;
-  padding: 2px 6px;
-  border: 1px solid var(--bw-border-soft);
-  border-radius: var(--bw-radius-sm);
-  background: var(--bw-surface);
-  font: inherit;
-  font-size: var(--bw-fs-label);
-  color: var(--bw-accent);
-  cursor: pointer;
-}
-.bw-person-move:focus-visible {
-  outline: 2px solid var(--bw-accent);
-  outline-offset: 1px;
-}
-/* Shared checklist (room page and board page) */
-.bw-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 11px;
-  background: var(--bw-surface);
-  border: 1px solid var(--bw-border);
-  border-radius: var(--bw-radius-md);
-}
-.bw-checklist__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-}
-.bw-checklist__title {
-  white-space: nowrap;
-  font-size: var(--bw-fs-label);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--bw-muted-3);
-}
-.bw-checklist__row {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 6px 2px;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-/* Fixed 16px box, centred on the label's first line (14px x 1.45 = 20px line).
-   The tick is drawn in CSS, not a "✓" glyph, so ticking never changes a line box. */
-.bw-checklist__box {
-  position: relative;
-  margin-top: 2px;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  border: 1.5px solid var(--bw-border-strong);
-  border-radius: 5px;
-}
-.bw-checklist__row--done .bw-checklist__box {
-  background: var(--bw-accent);
-  border-color: var(--bw-accent);
-}
-.bw-checklist__row--done .bw-checklist__box::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-.bw-checklist__label {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  line-height: 1.45;
-  font-size: var(--bw-fs-body);
-  color: var(--bw-ink);
-}
-.bw-checklist__row--done .bw-checklist__label {
-  text-decoration: line-through;
-  color: var(--bw-muted);
-}
-
 /* A footer with a single action keeps it on the right. */
 .bw-overlay__footer--end {
   justify-content: flex-end;
@@ -4196,8 +4467,37 @@ a.bw-resource-row:hover {
   transition: width 400ms var(--bw-ease); /* a vote meter filling: slower than the UI */
 }
 .bw-challenge-card__action {
+  position: relative;
   margin-top: auto;
   align-self: flex-start;
+  display: inline-flex;
+}
+/* The wrapper, not the disabled button, takes the hover that shows the hint. */
+.bw-challenge-card__action .bw-button:disabled {
+  pointer-events: none;
+}
+/* Why a button is off: a small note over it while the pointer rests on it. */
+.bw-hover-hint {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: var(--bw-radius-sm);
+  background: var(--bw-ink);
+  color: var(--bw-surface);
+  font-size: var(--bw-fs-meta);
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--bw-motion-fast) var(--bw-ease), visibility var(--bw-motion-fast);
+}
+.bw-challenge-card__action:hover .bw-hover-hint {
+  opacity: 1;
+  visibility: visible;
 }
 .bw-challenge-card__actions {
   margin-top: auto;
