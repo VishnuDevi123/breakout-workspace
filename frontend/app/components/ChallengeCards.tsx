@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-import { CHALLENGE_KINDS, type ChallengeKind } from "@/lib/challenges";
+import { CHALLENGE_KINDS, textLength, type ChallengeKind } from "@/lib/challenges";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView } from "@/types/breakout";
 
@@ -131,7 +131,9 @@ function RunningCard({
           {remainingSec ? formatClock(remainingSec) : "Time's up"}
         </span>
       </div>
-      <span className="bw-challenge-card__title" title={challenge.title}>{challenge.title}</span>
+      <span className="bw-challenge-card__title" title={challenge.title} data-length={textLength(challenge.title)}>
+        {challenge.title}
+      </span>
       <div className="bw-challenge-card__meter" aria-hidden="true">
         <span style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
       </div>

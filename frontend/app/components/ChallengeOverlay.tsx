@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 
-import { CHALLENGE_KINDS, currentQuestion, placeLabel, placeOf, winnerHeadline } from "@/lib/challenges";
+import { CHALLENGE_KINDS, currentQuestion, placeLabel, placeOf, textLength, winnerHeadline } from "@/lib/challenges";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView, LiveParticipant, RoomChallengeAnswers } from "@/types/breakout";
 
@@ -211,7 +211,7 @@ function Answering({
           </span>
         </div>
       ) : null}
-      <p className="bw-play__question">{question.text}</p>
+      <p className="bw-play__question" data-length={textLength(question.text)}>{question.text}</p>
       <div className="bw-play__options">
         {question.options.map((option, optionIndex) => {
           const leaning = Object.entries(picks).filter(([, picked]) => picked === optionIndex).map(([uuid]) => uuid);
@@ -264,7 +264,7 @@ function Revealed({ challenge, roomId }: { challenge: ChallengeView; roomId: str
   if (challenge.kind === "poll") {
     return (
       <div className="bw-play__answer bw-reveal bw-reveal--poll">
-        <p className="bw-play__question">{challenge.questions[0].text}</p>
+        <p className="bw-play__question" data-length={textLength(challenge.questions[0].text)}>{challenge.questions[0].text}</p>
         <ChallengeTally question={challenge.questions[0]} index={0} results={results} ownRoomId={roomId} hideQuestion />
       </div>
     );

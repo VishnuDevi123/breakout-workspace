@@ -155,3 +155,14 @@ export function winnerHeadline(results: ChallengeResults, ownRoomId: string): st
   const others = winners.filter((room) => room.roomId !== ownRoomId).map((room) => room.name);
   return ownWins ? `Your room ties for first with ${listNames(others)}!` : `${listNames(others)} tie for first`;
 }
+
+/**
+ * How long a host-written title or question is, so the text steps down a size and
+ * still sits neatly in its card. Set as `data-length`; globals.css sizes each step.
+ */
+export function textLength(text: string): "long" | "longer" | undefined {
+  const characters = text.trim().length;
+  if (characters > 120) return "longer";
+  if (characters > 60) return "long";
+  return undefined;
+}

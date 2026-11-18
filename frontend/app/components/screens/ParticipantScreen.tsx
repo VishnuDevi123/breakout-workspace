@@ -7,9 +7,11 @@ import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { useScreenSlide } from "@/lib/use-screen-slide";
 import { useLiveState } from "@/lib/use-live-state";
 import { useParticipantRound } from "@/lib/use-participant-round";
+import { peopleWith } from "@/lib/participant-status";
 import { useEarlierRounds, type EarlierRound } from "@/lib/use-past-rounds";
 import type { LiveState, PlannedRoom } from "@/types/breakout";
 
+import HomeBar from "../HomeBar";
 import { Button, Card, SectionLabel, StatusDot } from "../ui";
 import LoadingScreen from "./LoadingScreen";
 import WaitingScreen from "./WaitingScreen";
@@ -44,6 +46,7 @@ export default function ParticipantScreen({
   const { liveState } = useLiveState(parentUUID);
   const roundId = liveState?.round?.roundId ?? "";
   const me = liveState?.participants.find((p) => p.participantUUID === participantUUID);
+  const people = peopleWith(liveState, participantUUID);
   // Empty when webhooks have not reported this person yet; then the plan alone decides.
   const location = me?.location ?? "";
   const promoted = me !== undefined && me.role !== "attendee";
@@ -106,6 +109,7 @@ export default function ParticipantScreen({
     const roundsRan = earlierRounds.length > 0;
     return asScreen(
       <WaitingScreen
+        people={people}
         headline={roundsRan ? "That round has ended" : "No round running yet"}
         lede={
           roundsRan
@@ -127,6 +131,7 @@ export default function ParticipantScreen({
     if (showWorkspace) setShowWorkspace(false);
     return asScreen(
       <WaitingScreen
+        people={people}
         headline="You are staying in the main room"
         lede="Your host didn't place you in a breakout room this round."
       >
@@ -140,6 +145,7 @@ export default function ParticipantScreen({
     if (showWorkspace) setShowWorkspace(false);
     return asScreen(
       <WaitingScreen
+        people={people}
         headline="You are in the main room"
         lede={`Your room for this round is ${room.name}. Open Zoom's Breakout Rooms button to join it.`}
       >
@@ -161,7 +167,8 @@ export default function ParticipantScreen({
   }
 
   return asScreen(
-    <div className="bw-shell">
+    <div className="bw-shell bw-shell--fit">
+      <HomeBar people={people} />
       <div className="bw-body">
         <main className="bw-main bw-participant-main">
           <SectionLabel>You are in a breakout room</SectionLabel>

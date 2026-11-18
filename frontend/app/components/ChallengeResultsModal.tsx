@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { CHALLENGE_KINDS } from "@/lib/challenges";
+import { CHALLENGE_KINDS, textLength } from "@/lib/challenges";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView } from "@/types/breakout";
 
@@ -63,7 +63,9 @@ export default function ChallengeResultsModal({
           </header>
 
           <ChallengeScrollBody>
-            <h2 className="bw-challenge-results__title">{challenge.title}</h2>
+            <h2 className="bw-challenge-results__title" data-length={textLength(challenge.title)}>
+              {challenge.title}
+            </h2>
             {results && isQuiz ? (
               <div className="bw-field">
                 <SectionLabel>Leaderboard</SectionLabel>

@@ -10,14 +10,14 @@ export const ACTIVITY_KINDS: Record<
   individual: {
     label: "Individual response",
     hint: "private",
-    tint: "#fff4c4",
+    tint: "var(--bw-individual-line)",
     titleLabel: "Question",
     titlePlaceholder: "What should each person answer?",
   },
   ideaBoard: {
     label: "Shared response",
     hint: "idea board",
-    tint: "#c3faf5",
+    tint: "var(--bw-shared-line)",
     titleLabel: "Prompt for the board",
     titlePlaceholder: "What should the room add ideas about?",
   },

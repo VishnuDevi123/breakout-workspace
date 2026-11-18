@@ -21,6 +21,7 @@ import type {
 } from "@/types/breakout";
 
 import RoundPages from "../RoundPages";
+import { usePanelLayout } from "../round-layout";
 import SaveTemplateModal from "../SaveTemplateModal";
 import ZoomActionOverlay from "../ZoomActionOverlay";
 import { Button, Card, ConfirmModal, EditableName, SectionLabel } from "../ui";
@@ -122,6 +123,9 @@ export default function RoundsOverview({
   const applyingRef = useRef(false);
   const grouping = groupingOf(workspace);
   const hintId = useId();
+  // The round grid's preset layout, from the size of this page's panel.
+  const panel = useRef<HTMLDivElement>(null);
+  const roundLayout = usePanelLayout(panel);
   // Everyone Zoom still reports in the meeting. The host is never placed in a room.
   const eligibleUUIDs = (live?.participants ?? [])
     .filter((participant) => participant.location !== "left" && participant.role === "attendee")
@@ -287,7 +291,7 @@ export default function RoundsOverview({
   }
 
   return (
-    <div className="bw-shell bw-shell--fit">
+    <div ref={panel} className="bw-shell bw-shell--fit">
       <header className="bw-header">
         <button
           type="button"
@@ -317,12 +321,12 @@ export default function RoundsOverview({
         <div className="bw-header-spacer" />
       </header>
 
-      <div className="bw-body bw-workflow">
+      <div className="bw-body bw-workflow" data-layout={roundLayout.width}>
         <main className="bw-main">
           <p className="bw-round-list__hint">Click a round to edit its rooms and tasks</p>
           <RoundPages
             className="bw-round-list"
-            fill
+            layout={roundLayout}
             items={workspace.rounds.map((round, index) => ({
               key: round.roundId,
               node: (
@@ -739,7 +743,7 @@ function RoundRow({
         </Button>
       </div>
       <button type="button" className="bw-round-row__summary bw-card-open" aria-label={`Edit rooms and tasks for ${name}`} onClick={onOpen}>
-        {summary}
+        <span className="bw-round-row__summary-text">{summary}</span>
       </button>
 
       {confirmingRemove ? (

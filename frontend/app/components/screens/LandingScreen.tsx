@@ -7,7 +7,8 @@ import type { WorkflowSnapshot } from "@/types/breakout";
 
 import AiChatPanel from "../AiChatPanel";
 import AiPrompt from "../AiPrompt";
-import { BrandMark, Button, Card, ConfirmModal, StatusDot } from "../ui";
+import HomeBar from "../HomeBar";
+import { Button, Card, ConfirmModal, StatusDot } from "../ui";
 
 /**
  * First host screen. Shows what to do next and creates nothing until a button
@@ -58,28 +59,21 @@ export default function LandingScreen({
     return answer !== null;
   }
 
-  const presence =
-    participantCount === null
-      ? "connecting…"
-      : `${participantCount} ${participantCount === 1 ? "person" : "people"}`;
-
   return (
     <div className="bw-shell bw-shell--fit">
-      <header className="bw-header">
-        <BrandMark />
-        <div className="bw-round-heading">
-          <span className="bw-header-title">Breakout Workspace</span>
-          <span className="bw-header-subtitle">
-            Hosting {meetingTopic || "this meeting"} · {presence}
-          </span>
-        </div>
-        <div className="bw-header-spacer" />
-      </header>
+      <HomeBar people={participantCount} />
 
       <div className="bw-body">
         <main className="bw-main bw-landing-page">
           {/* Keyed by state so ending a workflow fades the page back in. */}
           <div key={ongoing ? "ongoing" : "home"} className={ongoing ? "bw-landing" : "bw-landing bw-landing--home"}>
+            {/* The meeting name lives here, not in the bar, so a long name never resizes the bar. */}
+            <p className="bw-hosting" title={meetingTopic || undefined}>
+              <span className="bw-hosting__mark" aria-hidden="true">Z</span>
+              <span className="bw-hosting__text">
+                Hosting <strong>{meetingTopic || "this meeting"}</strong>
+              </span>
+            </p>
             {ongoing ? (
               <Card className="bw-landing-card bw-landing-card--live">
                 <div className="bw-landing-card__text">
