@@ -90,6 +90,10 @@ export default function IdeaBoardPanel({
       </section>
 
       <div className="bw-session__column bw-room-layout__side">
+        {/* As tall as "← All activities", so the people card starts level with the prompt. */}
+        <span className="bw-results__back bw-room-layout__spacer" aria-hidden>
+          &nbsp;
+        </span>
         <RoomPeople heading="Working on this board" people={people} selfUUID={participantUUID} />
         <SharedChecklist title="Checklist" items={checklist} ticks={view?.ticks} onTick={(itemId, done) => void setTick(itemId, done)} />
       </div>

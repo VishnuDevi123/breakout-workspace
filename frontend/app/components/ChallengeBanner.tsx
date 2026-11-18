@@ -1,5 +1,6 @@
 "use client";
 
+import { textLength } from "@/lib/challenges";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import type { ChallengeView } from "@/types/breakout";
 
@@ -61,7 +62,7 @@ export default function ChallengeBanner({
           <StatusDot color="var(--bw-red)" round pulse className="bw-live-banner__dot" />
           {text.badge}
         </span>
-        <span className="bw-live-banner__title" title={challenge.title}>
+        <span className="bw-live-banner__title" title={challenge.title} data-length={textLength(challenge.title)}>
           {challenge.title}
         </span>
         <span className="bw-live-banner__hint">{text.hint}</span>

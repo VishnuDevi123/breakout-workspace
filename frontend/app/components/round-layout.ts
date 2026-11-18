@@ -26,13 +26,14 @@ interface RoundLayout {
  * - small: as medium, with the tighter cards.
  * - mobile: one column of cards.
  *
- * The height tiers and page sizes are first guesses, to tune on real Zoom panels.
+ * The stacked layouts show one row at h1 (a 13" panel), so the settings under the
+ * rounds stay in view. The height tiers and page sizes are tuned on real Zoom panels.
  */
 export const ROUND_LAYOUTS: Record<WidthTier, RoundLayout> = {
   large: { minWidth: 760, columns: 1, cardHeight: 96, perPage: { h1: 4, h2: 5, h3: 7, h4: 8 } },
-  medium: { minWidth: 560, columns: 2, cardHeight: 132, perPage: { h1: 4, h2: 4, h3: 6, h4: 8 } },
-  small: { minWidth: 470, columns: 2, cardHeight: 132, perPage: { h1: 4, h2: 4, h3: 6, h4: 6 } },
-  mobile: { minWidth: 0, columns: 1, cardHeight: 132, perPage: { h1: 3, h2: 3, h3: 3, h4: 3 } },
+  medium: { minWidth: 560, columns: 2, cardHeight: 132, perPage: { h1: 2, h2: 4, h3: 6, h4: 8 } },
+  small: { minWidth: 470, columns: 2, cardHeight: 132, perPage: { h1: 2, h2: 4, h3: 6, h4: 6 } },
+  mobile: { minWidth: 0, columns: 1, cardHeight: 132, perPage: { h1: 1, h2: 3, h3: 4, h4: 4 } },
 };
 
 /** Shortest panel each height tier is used at. */

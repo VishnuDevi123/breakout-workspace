@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { readSavedRoundPlan, saveRoundPlan, setRoundSkipped } from "@/lib/execution-api";
 import { canRunRounds } from "@/lib/host-gate";
-import { initialsFrom, type Participant } from "@/lib/participant-status";
+import { initialsFrom, peopleWith, type Participant } from "@/lib/participant-status";
 import { assignParticipantToRoom, newPlacements } from "@/lib/room-plan-assignments";
 import { formatClock, useRemainingSec } from "@/lib/round-clock";
 import { copyRooms, groupsForLaunch } from "@/lib/room-plan-copy";
@@ -40,11 +40,6 @@ const SETUP_MIN_LOADING_MS = 500;
 type HostView = "opening" | "landing" | "rounds" | "draft" | "task" | "live";
 
 /** People who can be placed: everyone Zoom still reports in the meeting. */
-function presentCount(live: LiveState | null): number | null {
-  if (!live) return null;
-  return live.participants.filter((p) => p.location !== "left").length;
-}
-
 /** Adapt webhook-fed live participants to the shape the draft editor renders. */
 function rosterFrom(live: LiveState | null): Participant[] {
   if (!live) return [];
@@ -487,6 +482,7 @@ export default function HostWorkspace({
   if (!runsRounds && (workspace.state.kind !== "ready" || !liveRoundId)) {
     return (
       <WaitingScreen
+        people={peopleWith(live.liveState)}
         label="You are a co-host"
         headline="The host is planning this session"
         lede="When the first round starts, this page shows the rooms. You can place people who are waiting and edit the round's task and activities."
@@ -518,7 +514,7 @@ export default function HostWorkspace({
       {stranded}
       <LandingScreen
         meetingTopic={meetingTopic}
-        participantCount={presentCount(live.liveState)}
+        participantCount={peopleWith(live.liveState)}
         workflow={
           workspace.state.kind === "ready"
             ? { title: workspace.state.workspace.title, roundCount: workspace.state.workspace.rounds.length }

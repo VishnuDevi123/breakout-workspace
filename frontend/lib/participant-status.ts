@@ -93,3 +93,15 @@ export function roomMembers({
       return { participantUUID: uuid, name: uuid === participantUUID ? "You" : fullName, fullName };
     });
 }
+
+/**
+ * People with this viewer: in their breakout room, or in the main meeting. Without a
+ * viewer, or before webhooks place them, everyone still in the meeting. Null until
+ * the live stream delivers its first state.
+ */
+export function peopleWith(live: LiveState | null, participantUUID?: string): number | null {
+  if (!live) return null;
+  const present = live.participants.filter((p) => p.location !== "left");
+  const here = present.find((p) => p.participantUUID === participantUUID)?.location;
+  return here ? present.filter((p) => p.location === here).length : present.length;
+}
