@@ -1,124 +1,122 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
-/** Rows on a page when the window has no room for more: four cards, two by two. */
-const MIN_ROWS = 2;
-
-/** The element that scrolls the list, or the page itself. */
-function scrollerOf(element: HTMLElement): HTMLElement {
-  for (let at = element.parentElement; at; at = at.parentElement) {
-    if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at;
-  }
-  return document.documentElement;
+/** A fixed page of cards: how many, in how many columns, each how tall. */
+export interface PageLayout {
+  columns: number;
+  perPage: number;
+  cardHeight: number;
 }
 
+/** Cards on a page without a `layout`: four. The page's CSS decides whether it pages at all. */
+const DEFAULT_PER_PAGE = 4;
+
 /**
- * A list of round cards that a narrow layout shows a page at a time, two cards
- * per row, with a pager under them. The page's CSS turns the paging on; a wide
- * layout hides the pager and shows every card.
+ * A list of round cards shown a page at a time, with a pager under them.
  *
- * A page holds two rows, or with `fill`, as many rows as the window has room for.
+ * With a `layout` (the workflow page), the grid is that page exactly: its columns,
+ * rows and card height come from the same numbers as the paging, so they always
+ * agree, and the pager keeps its space on a single page.
+ *
+ * Without one (the session page), a page is four cards and the page's CSS turns
+ * paging on only on a narrow panel.
+ *
+ * A new card on the current page fades in on its own; a new card past the page
+ * turns to its page with a slide. Cards already shown never move or replay.
  */
 export default function RoundPages({
   className,
   items,
   currentIndex = null,
-  fill = false,
+  layout,
   footer,
 }: {
   className: string;
-  /** One keyed card per round, in order. */
+  /** One card per round, keyed by round id, in order. */
   items: { key: string; node: ReactNode }[];
   /** A card to bring into view whenever it changes, such as the live round. */
   currentIndex?: number | null;
-  /** Grow the page into the free space under it, and shrink it before the page would scroll. */
-  fill?: boolean;
+  /** A fixed page of cards. */
+  layout?: PageLayout;
   /** Under the pager, such as + Add round. */
   footer?: ReactNode;
 }) {
-  const list = useRef<HTMLDivElement>(null);
-  const [layout, setLayout] = useState({ columns: 2, rows: MIN_ROWS });
-  const perPage = layout.columns * layout.rows;
+  const perPage = layout?.perPage ?? DEFAULT_PER_PAGE;
   const pages = Math.max(1, Math.ceil(items.length / perPage));
-  // A card on the wanted page, not a page number, so the same cards stay in view when a page grows.
+  // A card on the wanted page, not a page number, so the same cards stay in view when the page size changes.
   const [anchor, setAnchor] = useState(() => currentIndex ?? 0);
-  // Null until the page changes, so cards do not slide in when the list first shows.
+  const pageOf = (index: number) => Math.floor(Math.max(0, Math.min(index, items.length - 1)) / perPage);
+  const page = pageOf(anchor);
+  // Set only by a page turn, so cards already in view never slide.
   const [direction, setDirection] = useState<"next" | "back" | null>(null);
+  // The card just added; only it plays the enter animation.
+  const [added, setAdded] = useState<string | null>(null);
+
   const [seen, setSeen] = useState({ count: items.length, current: currentIndex, perPage });
   if (seen.count !== items.length || seen.current !== currentIndex || seen.perPage !== perPage) {
     setSeen({ count: items.length, current: currentIndex, perPage });
-    // Cards shown by a resize are not a page turn: no slide.
-    if (perPage !== seen.perPage) setDirection(null);
+    // A new page size shows other cards without animating them.
+    if (perPage !== seen.perPage) {
+      setDirection(null);
+      setAdded(null);
+    }
     if (items.length > seen.count) {
-      // A round was added: show the page it landed on.
-      setDirection("next");
-      setAnchor(items.length - 1);
+      const last = items.length - 1;
+      // Past this page: turn to it. On this page: only the new card animates.
+      setDirection(pageOf(last) !== page ? "next" : null);
+      setAdded(items[last].key);
+      setAnchor(last);
     } else if (currentIndex !== null && currentIndex !== seen.current) {
       setAnchor(currentIndex);
     }
   }
-  // Deleting rounds can leave the anchor past the end.
-  const page = Math.floor(Math.max(0, Math.min(anchor, items.length - 1)) / perPage);
-
-  useEffect(() => {
-    const element = list.current;
-    if (!fill || !element) return;
-    const scroller = scrollerOf(element);
-
-    // Rows that fit: grow into the space left under the list, shrink by what the page overflows.
-    function measure() {
-      if (!element) return;
-      const style = getComputedStyle(element);
-      const columns = style.gridTemplateColumns.split(" ").length;
-      const card = element.querySelector<HTMLElement>(".bw-round-pages__item:not([data-off]) > *");
-      if (style.display !== "grid" || columns < 2 || !card) return;
-
-      const step = card.getBoundingClientRect().height + parseFloat(style.rowGap);
-      const parent = element.parentElement!;
-      const parentBottom = parent.getBoundingClientRect().bottom - parseFloat(getComputedStyle(parent).paddingBottom);
-      const free = parentBottom - element.getBoundingClientRect().bottom;
-      const overflow = scroller.scrollHeight - scroller.clientHeight;
-
-      const shown = Math.ceil(element.querySelectorAll(".bw-round-pages__item:not([data-off])").length / columns);
-
-      setLayout((current) => {
-        // A paged list keeps every row of a page, even on a short last page.
-        const rendered = element.dataset.paged === undefined ? shown : current.rows;
-        const rows = Math.max(
-          MIN_ROWS,
-          overflow > 0 ? rendered - Math.ceil(overflow / step) : rendered + Math.floor(free / step),
-        );
-        return rows === current.rows && columns === current.columns ? current : { columns, rows };
-      });
-    }
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(scroller);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [fill]);
 
   function go(to: number) {
     setDirection(to > page ? "next" : "back");
     setAnchor(to * perPage);
   }
 
+  // With a layout the pager keeps its space on a single page, so + Add round never moves.
+  const showPager = pages > 1 || layout !== undefined;
+
   return (
-    <div
-      ref={list}
-      className={`bw-round-pages ${className}`}
-      style={{ "--bw-page-rows": layout.rows } as CSSProperties}
-      data-direction={direction ?? undefined}
-      data-paged={pages > 1 || undefined}
-    >
-      {items.map(({ key, node }, index) => (
-        <div key={key} className="bw-round-pages__item" data-off={Math.floor(index / perPage) !== page || undefined}>
-          {node}
-        </div>
-      ))}
-      {pages > 1 ? (
-        <div className="bw-pager" role="group" aria-label="Round pages">
+    <div className={`bw-round-pages ${className}`} data-paged={pages > 1 || undefined}>
+      <div
+        className="bw-round-pages__grid"
+        style={
+          layout
+            ? ({
+                "--bw-page-columns": layout.columns,
+                "--bw-page-rows": Math.ceil(layout.perPage / layout.columns),
+                "--bw-round-h": `${layout.cardHeight}px`,
+              } as CSSProperties)
+            : undefined
+        }
+        data-direction={direction ?? undefined}
+      >
+        {items.map(({ key, node }, index) => (
+          <div
+            key={key}
+            className="bw-round-pages__item"
+            data-off={Math.floor(index / perPage) !== page || undefined}
+            data-added={key === added || undefined}
+            onAnimationEnd={(event) => {
+              if (event.target === event.currentTarget && key === added) setAdded(null);
+            }}
+          >
+            {node}
+          </div>
+        ))}
+      </div>
+      {showPager ? (
+        <div
+          className="bw-pager"
+          role="group"
+          aria-label="Round pages"
+          aria-hidden={pages === 1 || undefined}
+          data-single={pages === 1 || undefined}
+        >
           <button
             type="button"
             className="bw-pager__button"
