@@ -14,9 +14,19 @@ function hmacHex(message: string): string {
   return createHmac("sha256", process.env.ZOOM_WEBHOOK_SECRET!).update(message).digest("hex");
 }
 
+// Longer than Zoom's last retry (85 minutes after the first try), whose timestamp Zoom's docs do not describe.
+const MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+// A signed request recorded and sent again later is refused. Seconds in Zoom's examples; milliseconds accepted too.
+function isRecent(timestamp: string): boolean {
+  const value = Number(timestamp);
+  const ms = value < 1e12 ? value * 1000 : value;
+  return Math.abs(Date.now() - ms) <= MAX_AGE_MS;
+}
+
 // Zoom signs every request: x-zm-signature = "v0=" + HMAC-SHA256("v0:{timestamp}:{raw body}").
 function signedByZoom(rawBody: Buffer, timestamp: string | undefined, signature: string | undefined): boolean {
-  if (!timestamp || !signature) return false;
+  if (!timestamp || !signature || !isRecent(timestamp)) return false;
   const expected = Buffer.from(`v0=${hmacHex(`v0:${timestamp}:${rawBody.toString("utf8")}`)}`);
   const received = Buffer.from(signature);
   return expected.length === received.length && timingSafeEqual(expected, received);

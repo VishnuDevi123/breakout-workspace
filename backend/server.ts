@@ -60,9 +60,19 @@ app.use("/api/responses", activity_responses_routes);
 app.use("/api/challenges", challengeRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/ai", aiRoutes);
-// zoom OAuth callback route, only backend should handle this
-app.get("/auth/callback", (req, res) => {
-  res.send("Zoom OAuth callback reached backend.");
+// Zoom sends the user here after they add the app (the Marketplace OAuth redirect URL).
+// The app reads who they are from the app context token, so this page only says what to do next.
+app.get("/auth/callback", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Breakout Workspace installed</title></head>
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#f7f8fa;color:#1f2937">
+<main style="max-width:420px;padding:24px;text-align:center">
+<h1 style="font-size:22px;font-weight:600;margin:0 0 8px">Breakout Workspace is installed</h1>
+<p style="font-size:15px;line-height:1.5;margin:0;color:#4b5563">Start or join a Zoom meeting, then open Breakout Workspace from Apps in the meeting toolbar. You can close this page.</p>
+</main>
+</body>
+</html>`);
 });
 
 function health(): ApiResponse<HealthResponse> {
