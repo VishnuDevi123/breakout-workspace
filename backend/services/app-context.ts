@@ -21,16 +21,32 @@ interface AppContext {
   aud?: string;
 }
 
-/**
- * Decrypts the token from `getAppContext()` / the X-Zoom-App-Context header.
- * Layout and algorithm from Zoom's docs (developers.zoom.us/docs/zoom-apps/zoom-app-context):
- * AES-256-GCM with key = sha256(client secret).
- */
-function decryptAppContext(token: string): AppContext {
-  // Read here, not at import: server.ts loads .env after its imports have run.
-  const secret = process.env.ZOOM_CLIENT_SECRET;
-  if (!secret) throw new Error("ZOOM_CLIENT_SECRET is not set.");
+/** One Zoom app's credentials: the client id the token names in `aud`, and the secret that seals it. */
+interface ZoomApp {
+  clientId: string;
+  secret: string;
+}
 
+/**
+ * The apps whose tokens this server accepts. Zoom gives the published app (production) and
+ * the build page's test app (development) different client ids and secrets, and both can
+ * open the same deployment. Read per call, not at import: server.ts loads .env after its imports.
+ */
+function zoomApps(): ZoomApp[] {
+  const apps = [
+    { clientId: process.env.ZOOM_CLIENT_ID, secret: process.env.ZOOM_CLIENT_SECRET },
+    { clientId: process.env.ZOOM_DEV_CLIENT_ID, secret: process.env.ZOOM_DEV_CLIENT_SECRET },
+  ].filter((app): app is ZoomApp => Boolean(app.clientId && app.secret));
+  if (apps.length === 0) throw new Error("ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET are not set.");
+  return apps;
+}
+
+/**
+ * Decrypts the token from `getAppContext()` / the X-Zoom-App-Context header with one app's secret.
+ * Layout and algorithm from Zoom's docs (developers.zoom.us/docs/zoom-apps/zoom-app-context):
+ * AES-256-GCM with key = sha256(client secret). Null when this secret did not seal the token.
+ */
+function decryptWith(token: string, secret: string): AppContext | null {
   try {
     const buf = Buffer.from(token, "base64");
     const ivLength = buf.readUInt8(0);
@@ -51,8 +67,22 @@ function decryptAppContext(token: string): AppContext {
     return JSON.parse(json) as AppContext;
   } catch {
     // A wrong secret, a cut token or a tampered one all fail the GCM tag check here.
-    throw new HttpError("Zoom app context could not be read.", 401);
+    return null;
   }
+}
+
+/**
+ * Tries each accepted app's secret. A token that opens was sealed by Zoom for that app,
+ * and its `aud` must be that app's client id.
+ */
+function decryptAppContext(token: string): AppContext {
+  for (const app of zoomApps()) {
+    const context = decryptWith(token, app.secret);
+    if (!context) continue;
+    if (context.aud !== app.clientId) throw new HttpError("Zoom app context is for another app.", 401);
+    return context;
+  }
+  throw new HttpError("Zoom app context could not be read.", 401);
 }
 
 /** Decrypt and check exp: a token that passes is Zoom's and still current. */
@@ -89,8 +119,6 @@ const ROLES: Record<string, MeetingRole> = { host: "host", "co-host": "coHost", 
 
 export function callerFrom(header: string | undefined): Caller {
   const context = currentAppContext(header);
-  // A token Zoom made for another app would not decrypt; aud is a second check on the same thing.
-  if (context.aud !== process.env.ZOOM_CLIENT_ID) throw new HttpError("Zoom app context is for another app.", 401);
   if (!context.mid) throw new HttpError("Open the app inside a Zoom meeting.", 403);
   // The beta admits signed-in users only; guests carry iid and no uid.
   if (!context.uid) throw new HttpError("Sign in to Zoom to use this app.", 403);
