@@ -22,9 +22,10 @@ export type ZoomSdk = NonNullable<Window["zoomSdk"]>;
  * Documented by Zoom as available to every role, including guests. Anything
  * else in this list rejects the whole `config()` call for an attendee.
  * `getAppContext` is here because every backend request carries its token
- * (verified safe for attendees in Zoom 2026-11-04).
+ * (verified safe for attendees in Zoom 2026-11-04). `openUrl` opens the
+ * website from the home pages; Zoom lists it for every role.
  */
-const BASE_CAPABILITIES = ["getMeetingUUID", "getUserContext", "getAppContext"];
+const BASE_CAPABILITIES = ["getMeetingUUID", "getUserContext", "getAppContext", "openUrl"];
 
 /**
  * Host and co-host only, per Zoom's "Supported roles" line on each method.
@@ -183,6 +184,20 @@ async function readFreshToken(): Promise<string> {
  */
 export function forgetAppContextToken(): void {
   cachedToken = null;
+}
+
+/**
+ * Opens a page in the user's system browser. Inside Zoom a plain link does
+ * nothing, so this goes through `openUrl`; the domain must be on the app's
+ * domain allow list. Outside Zoom it opens a new tab. Rejects when Zoom refuses.
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+  const bootstrap = await configureZoomSdk();
+  if (bootstrap.kind === "unavailable") {
+    window.open(url, "_blank", "noopener");
+    return;
+  }
+  await bootstrap.sdk.openUrl({ url });
 }
 
 let hostPromise: Promise<SdkErrorInfo | null> | null = null;

@@ -193,6 +193,9 @@ declare global {
        * `uid`. Every role may call it.
        */
       getAppContext: () => Promise<{ context: string }>;
+
+      /** Opens a URL in the system browser. The domain must be on the app's allow list. Every role may call it. */
+      openUrl: (options: { url: string }) => Promise<unknown>;
     };
   }
 }
