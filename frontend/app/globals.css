@@ -1896,9 +1896,6 @@ input[type="checkbox"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.bw-room-name {
   font-size: var(--bw-fs-body);
   font-weight: 600;
 }
@@ -2038,9 +2035,6 @@ input[type="checkbox"] {
   border-radius: var(--bw-radius-sm);
   background: var(--bw-surface);
   box-shadow: 0 5px 18px rgba(28, 28, 30, 0.12);
-}
-
-.bw-member-menu__popover {
   top: 25px;
   min-width: 140px;
   max-height: 220px;
@@ -2436,6 +2430,12 @@ input[type="checkbox"] {
    (the field's 5px and the row's 7px), under the ✕, so a row is only as tall as its text. */
 .bw-line-row {
   position: relative;
+  /* Rows top-aligned: an open field grows downwards, its number and ✕ stay on the first line. */
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--bw-border-faint);
 }
 .bw-field__count--float {
   position: absolute;
@@ -2456,14 +2456,6 @@ input[type="checkbox"] {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--bw-danger-text);
-}
-/* Rows top-aligned: an open field grows downwards, its number and ✕ stay on the first line. */
-.bw-line-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--bw-border-faint);
 }
 .bw-line-row__number {
   min-width: 1ch;
@@ -2836,6 +2828,7 @@ input[type="checkbox"] {
   background: var(--bw-frame-planning-bar-bg);
   color: var(--bw-ink);
   border-bottom: 1px solid var(--bw-border);
+  flex-wrap: nowrap; /* the round setup bar keeps one row (see below) */
 }
 .bw-setup-pending {
   min-height: 240px;
@@ -2854,9 +2847,6 @@ input[type="checkbox"] {
  * Next; the name truncates and Next never wraps or moves. The toolbar under it
  * holds the room count, how many are placed and Assign evenly.
  */
-.bw-frame--planning .bw-frame__bar {
-  flex-wrap: nowrap;
-}
 .bw-setup-heading {
   flex: 1 1 0;
 }
@@ -4971,11 +4961,6 @@ button.bw-act-card__link:hover {
 .bw-board__add > .bw-button {
   flex: none;
   align-self: flex-end;
-}
-.bw-board__hint {
-  padding-left: 4px;
-  font-size: 11.5px;
-  color: var(--bw-muted-4);
 }
 /* "Ideas", the count, and All / Mine on the right. */
 .bw-board__head {
