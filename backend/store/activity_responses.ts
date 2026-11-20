@@ -171,9 +171,9 @@ export async function submitAnswer(room: RoomRef, activityId: string, request: u
   const status: AnswerStatus = body.status;
   const text = boundedText(body.text, "text", MAX_ANSWER_LENGTH, status === "working");
 
-  if (!isSafeKey(activityId) || !isSafeKey(participantUUID)) throw new HttpError("Not a valid id.", 400);
-
   return changeRoom(room, participantUUID, (record) => {
+    // Checked here, where the ids become keys, so no reserved name reaches Object.prototype.
+    if (!isSafeKey(activityId) || !isSafeKey(participantUUID)) throw new HttpError("Not a valid id.", 400);
     const answers = (record.answers[activityId] ??= {});
     if (text) {
       answers[participantUUID] = { participantUUID, text, status, savedAt: Date.now() };
