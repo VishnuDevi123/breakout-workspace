@@ -6,6 +6,7 @@ import {
   type SetRoomStatusRequest,
 } from "../types/breakout.ts";
 import { changeItem, readItem } from "../services/dynamo.ts";
+import { isSafeKey } from "../services/http-error.ts";
 import { getRoundPlan, moveToPlannedRoom } from "./round-plans.ts";
 
 // The meeting's live record (item "live"): who is where, the running round and the
@@ -289,7 +290,8 @@ export async function applyEvent(body: unknown): Promise<Rejoin | null> {
 
     let rejoin: Rejoin | null = null
     await changeLive(parentUUID, async (live) => {
-        const uid = participant?.participant_user_id
+        // A user id that would reach Object.prototype is treated as a guest, so it never becomes a key.
+        const uid = participant?.participant_user_id && isSafeKey(participant.participant_user_id) ? participant.participant_user_id : undefined
         // Records written before people existed have none (deployment rule: read old records).
         const person = uid ? ((live.people ??= {})[uid] ??= { participantUUIDs: [], roleChangedAt: 0 }) : null
         if (person && !person.participantUUIDs.includes(participantUUID)) person.participantUUIDs.push(participantUUID)
@@ -355,10 +357,10 @@ export async function retireParticipantIds(rejoin: Rejoin, roomIds: string[]): P
     await changeLive(rejoin.parentUUID, (live) => {
         live.participants = live.participants.filter((p) => !retired.has(p.participantUUID))
         for (const id of retired) delete live.recentLeaves[id]
-        const person = live.people?.[rejoin.uid]
+        const person = isSafeKey(rejoin.uid) ? live.people?.[rejoin.uid] : undefined
         if (person) person.participantUUIDs = person.participantUUIDs.filter((id) => !retired.has(id))
         live.planRevision += 1
-        for (const roomId of roomIds) live.roomRevisions[roomId] = (live.roomRevisions[roomId] ?? 0) + 1
+        for (const roomId of roomIds) if (isSafeKey(roomId)) live.roomRevisions[roomId] = (live.roomRevisions[roomId] ?? 0) + 1
         return true
     })
 }

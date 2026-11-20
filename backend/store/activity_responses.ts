@@ -12,7 +12,7 @@ import {
 import { bumpRoomRevision, getLive } from "./live.ts";
 import { getRoundPlan } from "./round-plans.ts";
 import { changeItem, readItem, readItems, roundItem } from "../services/dynamo.ts";
-import { HttpError, isRecord, requiredString } from "../services/http-error.ts";
+import { HttpError, isRecord, isSafeKey, requiredString } from "../services/http-error.ts";
 
 // What participants wrote: individual answers, idea notes and checklist
 // ticks. One record per room (item "round#<roundId>#room#<roomId>").
@@ -170,6 +170,8 @@ export async function submitAnswer(room: RoomRef, activityId: string, request: u
   }
   const status: AnswerStatus = body.status;
   const text = boundedText(body.text, "text", MAX_ANSWER_LENGTH, status === "working");
+
+  if (!isSafeKey(activityId) || !isSafeKey(participantUUID)) throw new HttpError("Not a valid id.", 400);
 
   return changeRoom(room, participantUUID, (record) => {
     const answers = (record.answers[activityId] ??= {});
