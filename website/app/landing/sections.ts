@@ -8,4 +8,4 @@ export const LANDING_SECTIONS = [
 
 export type LandingSectionId = (typeof LANDING_SECTIONS)[number]["id"];
 
-export const REPO_URL = "https://github.com/VishnuDevi123/zoom-breakout-workspace";
+export const REPO_URL = "https://github.com/VishnuDevi123/breakout-workspace";

@@ -25,8 +25,8 @@ This is a prototype. Try it without Zoom in the interactive demo on the project 
 ## 1. Install
 
 ```bash
-git clone https://github.com/VishnuDevi123/zoom-breakout-workspace.git
-cd zoom-breakout-workspace
+git clone https://github.com/VishnuDevi123/breakout-workspace.git
+cd breakout-workspace
 (cd backend && npm install)
 (cd frontend && npm install)
 (cd website && npm install)   # only if you want the website

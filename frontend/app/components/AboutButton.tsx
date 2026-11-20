@@ -6,8 +6,8 @@ import { openExternalUrl } from "@/lib/zoom-sdk";
 
 import { Button } from "./ui";
 
-const WEBSITE_URL = "https://zoom-breakout-workspace.vercel.app/";
-const WEBSITE_HOST = "zoom-breakout-workspace.vercel.app";
+const WEBSITE_URL = "https://breakout-workspace.vercel.app/";
+const WEBSITE_HOST = "breakout-workspace.vercel.app";
 
 /**
  * A round button fixed at the bottom right of the home pages. It opens a small
