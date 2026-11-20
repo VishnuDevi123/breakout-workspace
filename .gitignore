@@ -52,3 +52,6 @@ urls.txt
 
 # Marketplace submission notes (local only)
 marketplace-submission.md
+
+# Marketplace listing images (local only)
+/website/images/

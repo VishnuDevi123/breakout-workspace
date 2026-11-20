@@ -185,8 +185,6 @@ declare global {
         callback: (event: never) => void,
       ) => Promise<unknown> | void;
 
-      onAuthorized: (callback: (event: unknown) => void) => void;
-
       /**
        * Encrypted app context token (the X-Zoom-App-Context value). The browser
        * cannot read it; the backend decrypts it with the client secret to get

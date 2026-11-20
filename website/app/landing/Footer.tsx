@@ -5,10 +5,14 @@ import { REPO_URL } from "./sections";
 const LINKEDIN_URL = "https://www.linkedin.com/in/vishnuvardhana-reddy-devi-reddy/";
 const GITHUB_PROFILE_URL = "https://github.com/VishnuDevi123";
 
-/** Page links first, then the author's own; external ones open in a new tab. */
+/** Page links, help and policy pages, then the author's own; external ones open in a new tab. */
 const FOOTER_LINKS = [
   { label: "Try the demo", href: "/demo", external: false },
-  { label: "How it works", href: "#how-it-works", external: false },
+  { label: "How it works", href: "/#how-it-works", external: false },
+  { label: "Guide", href: "/docs", external: false },
+  { label: "Support", href: "/support", external: false },
+  { label: "Privacy", href: "/privacy", external: false },
+  { label: "Terms", href: "/terms", external: false },
   { label: "Source code", href: REPO_URL, external: true },
   { label: "LinkedIn", href: LINKEDIN_URL, external: true },
   { label: "GitHub", href: GITHUB_PROFILE_URL, external: true },
@@ -27,7 +31,7 @@ export default function Footer() {
             >
               B
             </span>
-            <span className="lp-footer__name">Zoom Breakout Workspace</span>
+            <span className="lp-footer__name">Breakout Workspace</span>
           </span>
           <p className="lp-footer__project">
             An ASU Next Lab and Zoom fellowship project.

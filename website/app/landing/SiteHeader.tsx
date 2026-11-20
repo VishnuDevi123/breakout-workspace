@@ -115,7 +115,7 @@ export default function SiteHeader() {
         <span className="lp-header__mark" aria-hidden="true">
           B
         </span>
-        <span className="lp-header__name">Zoom Breakout Workspace</span>
+        <span className="lp-header__name">Breakout Workspace</span>
       </a>
       <nav className="lp-nav" aria-label="Page sections">
         <span ref={pillRef} className="lp-nav__pill" aria-hidden="true" />
